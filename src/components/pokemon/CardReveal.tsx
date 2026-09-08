@@ -2,8 +2,6 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { PokemonCard } from './PokemonCard';
 import type { Pokemon } from '../../types/pokemon';
-import { Button } from '../ui/Button';
-import { Link } from 'react-router-dom';
 import { getCapsuleColors } from '../lottery/Gachapon';
 import { cn } from '../../utils/cn';
 
