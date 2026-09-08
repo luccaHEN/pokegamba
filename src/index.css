@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  /* Cobblemon Roots Palette */
+  --color-cobble-900: #1d2e20; /* Dark Forest Green */
+  --color-cobble-800: #2b4530; /* Medium Forest Green */
+  --color-cobble-700: #423223; /* Dark Wood Brown */
+  --color-cobble-600: #614d3a; /* Lighter Wood Brown */
+  --color-cobble-500: #757d76; /* Stone Gray */
+  --color-cobble-400: #aebab0; /* Light Moss Gray */
+  --color-cobble-300: #d6ebd8; /* Light Mossy White */
+  --color-cobble-200: #e6f0e7; /* Almost White */
+  --color-cobble-100: #f2f7f2;
+  --color-cobble-50: #fafcfa;
+
+  --font-pixel: "Pixelify Sans", sans-serif;
+  --font-modern: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "VT323", monospace;
+}
+
+@layer base {
+  body {
+    @apply text-slate-100 min-h-screen antialiased bg-transparent;
+    image-rendering: pixelated;
+  }
+  
+  body.font-pixel, body.font-pixel * {
+    font-family: "Pixelify Sans", sans-serif !important;
+  }
+  
+  body.font-modern, body.font-modern * {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  }
+}
+
+/* Custom Scrollbar for consistent look */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1d2e20; 
+  border-left: 2px solid #423223;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #614d3a; 
+  border: 2px solid #423223;
+  border-radius: 0px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #757d76; 
+}
