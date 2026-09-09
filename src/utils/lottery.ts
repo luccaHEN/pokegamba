@@ -8,7 +8,8 @@ export interface LotteryFilters {
   allowLegendary?: boolean;
   allowMythical?: boolean;
   rarity?: 'all' | 'normal' | 'legendary' | 'mythical';
-  evolution?: 'all' | 'base' | 'evolved';
+  evolution?: 'all' | 'base' | 'evolved' | '1' | '2' | '3';
+  uniqueTypes?: boolean;
 }
 
 export const LEGENDARY_IDS = [
@@ -25,7 +26,8 @@ export async function drawPokemon(
   filters: LotteryFilters, 
   allowLegendary: boolean, 
   allowMythical: boolean,
-  excludeIds: number[] = []
+  excludeIds: number[] = [],
+  excludeTypes: string[] = []
 ): Promise<Pokemon> {
   let possibleIds: number[] = [];
 
@@ -102,6 +104,14 @@ export async function drawPokemon(
         continue;
       }
 
+      if (excludeTypes.length > 0) {
+        const hasExcludedType = pokemon.types.some((t: any) => excludeTypes.includes(t.type.name));
+        if (hasExcludedType) {
+          possibleIds.splice(randomIndex, 1);
+          continue;
+        }
+      }
+
       const species = await pokeApi.getPokemonSpecies(chosenId);
 
       // If we need to check legendary status from general allow rules (if rarity is 'all')
@@ -117,14 +127,41 @@ export async function drawPokemon(
       }
 
       // Evolution check
-      if (filters.evolution === 'base' && species.evolves_from_species !== null) {
-        possibleIds.splice(randomIndex, 1);
-        continue;
-      }
-
-      if (filters.evolution === 'evolved' && species.evolves_from_species === null) {
-        possibleIds.splice(randomIndex, 1);
-        continue;
+      if (filters.evolution === 'base' || filters.evolution === '1') {
+        if (species.evolves_from_species !== null) {
+          possibleIds.splice(randomIndex, 1);
+          continue;
+        }
+      } else if (filters.evolution === 'evolved') {
+        if (species.evolves_from_species === null) {
+          possibleIds.splice(randomIndex, 1);
+          continue;
+        }
+      } else if (filters.evolution === '2' || filters.evolution === '3') {
+        if (species.evolves_from_species === null) {
+          possibleIds.splice(randomIndex, 1);
+          continue;
+        }
+        
+        try {
+          const parentUrlParts = species.evolves_from_species.url.split('/');
+          const parentId = parseInt(parentUrlParts[parentUrlParts.length - 2], 10);
+          const parentSpecies = await pokeApi.getPokemonSpecies(parentId);
+          const isStage2 = parentSpecies.evolves_from_species === null;
+          
+          if (filters.evolution === '2' && !isStage2) {
+            possibleIds.splice(randomIndex, 1);
+            continue;
+          }
+          if (filters.evolution === '3' && isStage2) {
+            possibleIds.splice(randomIndex, 1);
+            continue;
+          }
+        } catch (err) {
+          // If we fail to fetch parent, skip this pokemon just to be safe
+          possibleIds.splice(randomIndex, 1);
+          continue;
+        }
       }
       
       return pokemon;

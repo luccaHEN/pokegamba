@@ -41,6 +41,8 @@ export default function Lottery() {
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showRandomPrompt, setShowRandomPrompt] = useState(false);
+  const [randomEvoLevel, setRandomEvoLevel] = useState<'all' | '1' | '2' | '3'>('all');
 
   const [drawingQueue, setDrawingQueue] = useState<Pokemon[]>([]);
 
@@ -90,15 +92,22 @@ export default function Lottery() {
     try {
       const drawnPokemon: Pokemon[] = [];
       const drawnIds: number[] = [];
+      const drawnTypes: string[] = [];
       
       const allowLegendary = activeFilters.allowLegendary ?? true;
       const allowMythical = activeFilters.allowMythical ?? true;
 
       for (let i = 0; i < activeQty; i++) {
         try {
-          const p = await drawPokemon(activeFilters, allowLegendary, allowMythical, drawnIds);
+          const excludeTypes = activeFilters.uniqueTypes ? drawnTypes : [];
+          const p = await drawPokemon(activeFilters, allowLegendary, allowMythical, drawnIds, excludeTypes);
           drawnPokemon.push(p);
           drawnIds.push(p.id);
+          p.types.forEach(t => {
+            if (!drawnTypes.includes(t.type.name)) {
+              drawnTypes.push(t.type.name);
+            }
+          });
         } catch (e) {
           console.warn("Não foi possível sortear mais Pokémon para os filtros atuais.");
           break; // Stop trying to draw more, but keep what we have
@@ -139,27 +148,19 @@ export default function Lottery() {
     }
   };
 
-  const handleRandomDraw = () => {
-    const qty = Math.floor(Math.random() * 6) + 1;
-    const t1 = Math.random() > 0.5 ? 'all' : TYPES[Math.floor(Math.random() * TYPES.length)];
-    const t2 = Math.random() > 0.5 ? 'all' : TYPES[Math.floor(Math.random() * TYPES.length)];
-    const rarities = ['all', 'all', 'normal', 'legendary', 'mythical'] as const;
-    const rarity = rarities[Math.floor(Math.random() * rarities.length)];
-    const evos = ['all', 'base', 'evolved'] as const;
-    
+  const handleRandomDraw = (withLegendaries: boolean) => {
     const randomFilters: LotteryFilters = {
-      type1: t1,
-      type2: t2 === t1 ? 'all' : t2,
-      generation: Math.random() > 0.7 ? 0 : GENS[Math.floor(Math.random() * (GENS.length - 1)) + 1].id,
-      rarity,
-      evolution: (rarity === 'legendary' || rarity === 'mythical') ? 'all' : evos[Math.floor(Math.random() * evos.length)],
-      allowLegendary: true,
-      allowMythical: true
+      type1: 'all',
+      type2: 'all',
+      generation: 0,
+      rarity: withLegendaries ? 'all' : 'normal',
+      evolution: randomEvoLevel,
+      allowLegendary: withLegendaries,
+      allowMythical: withLegendaries,
+      uniqueTypes: true
     };
 
-    setQuantity(qty);
-    setFilters(randomFilters);
-    handleDraw(qty, randomFilters);
+    handleDraw(6, randomFilters);
   };
 
   const isEvolutionDisabled = ['legendary', 'mythical'].includes(filters.rarity || 'all');
@@ -203,6 +204,70 @@ export default function Lottery() {
           </div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showRandomPrompt && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" style={{ zoom: 1.11 }}>
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 30 }}
+              transition={{ type: "spring", damping: 15 }}
+              className="bg-cobble-800 border-4 border-purple-600 rounded-none p-8 max-w-md w-full shadow-[0_0_50px_rgba(147,51,234,0.3)] relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500"></div>
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mb-4">
+                  <Sparkles className="text-purple-400 w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-black text-white mb-2 drop-shadow-md">
+                  Sorteio de Time
+                </h3>
+                <p className="text-cobble-200 text-sm mb-4 font-medium">
+                  Configure o nível de evolução do seu time aleatório:
+                </p>
+
+                <div className="w-full bg-black/30 p-3 border-2 border-cobble-700 mb-6 text-left">
+                  <h3 className="font-bold text-xs text-slate-200 mb-2 tracking-widest uppercase">Estágio de Evolução</h3>
+                  <select
+                    value={randomEvoLevel}
+                    onChange={(e) => setRandomEvoLevel(e.target.value as any)}
+                    className="w-full bg-cobble-800 border-2 border-cobble-700 p-2 text-white outline-none font-bold shadow-inner cursor-pointer appearance-none"
+                  >
+                    <option value="all">Qualquer Estágio (Misto)</option>
+                    <option value="1">Apenas Estágio 1 (Base)</option>
+                    <option value="2">Apenas Estágio 2</option>
+                    <option value="3">Apenas Estágio 3 (Final)</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-3 w-full">
+                  <Button 
+                    onClick={() => { setShowRandomPrompt(false); handleRandomDraw(true); }} 
+                    className="w-full !bg-purple-600 hover:!bg-purple-500 text-white text-lg py-3 shadow-lg"
+                  >
+                    Sortear Com Lendários!
+                  </Button>
+                  <Button 
+                    onClick={() => { setShowRandomPrompt(false); handleRandomDraw(false); }} 
+                    className="w-full !bg-indigo-600 hover:!bg-indigo-500 text-white text-lg py-3 shadow-lg"
+                  >
+                    Sortear Sem Lendários
+                  </Button>
+                  <Button 
+                    onClick={() => setShowRandomPrompt(false)} 
+                    variant="secondary"
+                    className="w-full mt-2"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 relative z-10">
         
@@ -303,8 +368,8 @@ export default function Lottery() {
           </div>
 
           <div className="mt-4 pt-4 border-t-4 border-cobble-700 flex flex-col gap-2">
-            <Button onClick={handleRandomDraw} className="w-full !bg-purple-600 hover:!bg-purple-500 text-white !border-purple-800" size="sm">
-              <Dices className="w-4 h-4 mr-2"/> Filtros Aleatórios
+            <Button onClick={() => setShowRandomPrompt(true)} className="w-full !bg-purple-600 hover:!bg-purple-500 text-white !border-purple-800" size="sm">
+              <Dices className="w-4 h-4 mr-2"/> 6 Pokémons Aleatórios
             </Button>
             <Button onClick={resetFilters} variant="secondary" className="w-full text-xs" size="sm">
               Limpar Filtros
@@ -389,12 +454,12 @@ export default function Lottery() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-cobble-900/95 backdrop-blur-md border-[8px] border-cobble-700 p-10 shadow-[0_0_100px_rgba(0,0,0,0.8)] w-full max-w-[1200px] max-h-[95vh] overflow-y-auto custom-scrollbar relative rounded-xl"
-              style={{ zoom: 0.9 }}
+              className="bg-cobble-900/95 backdrop-blur-md border-[8px] border-cobble-700 p-6 md:p-8 shadow-[0_0_100px_rgba(0,0,0,0.8)] w-full max-w-[1300px] max-h-[95vh] overflow-y-auto custom-scrollbar relative rounded-xl"
+              style={{ zoom: results.length > 3 ? 0.8 : 0.9 }}
             >
               
               <div className={cn(
-                "grid gap-8 justify-center mx-auto",
+                "grid gap-4 md:gap-6 justify-center mx-auto",
                 results.length === 1 ? "grid-cols-1 max-w-md" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl"
               )}>
                 {results.map((p, idx) => (
@@ -404,19 +469,19 @@ export default function Lottery() {
                 ))}
               </div>
 
-              <div className="mt-16 flex flex-col sm:flex-row justify-center gap-6">
+              <div className="mt-8 flex flex-col sm:flex-row justify-center gap-6">
                 <Button 
                   onClick={() => { setResults([]); }} 
                   size="lg" 
                   variant="secondary"
-                  className="font-bold border-[4px] text-xl py-6 px-10 hover:bg-cobble-600"
+                  className="font-bold border-[4px] text-xl py-4 px-8 hover:bg-cobble-600"
                 >
                   <Settings2 className="w-6 h-6 mr-3" /> Fechar Resultados
                 </Button>
                 <Button 
                   onClick={() => { setResults([]); handleDraw(); }} 
                   size="lg" 
-                  className="font-bold border-[4px] !bg-blue-600 hover:!bg-blue-500 !border-blue-800 text-xl py-6 px-10"
+                  className="font-bold border-[4px] !bg-blue-600 hover:!bg-blue-500 !border-blue-800 text-xl py-4 px-8"
                 >
                   <RefreshCw className="w-6 h-6 mr-3" /> Girar de Novo
                 </Button>

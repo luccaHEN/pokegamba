@@ -18,7 +18,7 @@ export function CardReveal({ pokemon, idx }: { pokemon: Pokemon; idx: number }) 
   const colors = getCapsuleColors(pokemon);
 
   return (
-    <div className="relative h-full flex flex-col items-center justify-center min-h-[350px]">
+    <div className="relative h-full flex flex-col items-center justify-center min-h-[300px]">
       
       <div className="absolute z-50 flex flex-col items-center justify-center pointer-events-none">
         <motion.div
