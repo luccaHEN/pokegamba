@@ -25,6 +25,7 @@ const GENS = [
 import { Gachapon } from '../components/lottery/Gachapon';
 
 import { CardReveal } from '../components/pokemon/CardReveal';
+import { PokemonTypeBadge } from '../components/pokemon/PokemonTypeBadge';
 
 export default function Lottery() {
   const [history, setHistory] = useLocalStorage<LotteryHistorySession[]>('cobblemon-history', []);
@@ -43,8 +44,29 @@ export default function Lottery() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showRandomPrompt, setShowRandomPrompt] = useState(false);
   const [randomEvoLevel, setRandomEvoLevel] = useState<'all' | '1' | '2' | '3'>('all');
+  const [lastDrawConfig, setLastDrawConfig] = useState<{ qty: number, filters: LotteryFilters } | null>(null);
+  const [drawnType, setDrawnType] = useState<string | null>(null);
+  const [isDrawingType, setIsDrawingType] = useState(false);
 
   const [drawingQueue, setDrawingQueue] = useState<Pokemon[]>([]);
+
+  const handleDrawType = async () => {
+    if (isDrawingType) return;
+    setIsDrawingType(true);
+    
+    const actualTypes = TYPES.filter(t => t !== 'all');
+    let finalType = 'normal';
+    
+    // Cycle through random types for a short animation
+    for(let i=0; i < 15; i++) {
+      finalType = actualTypes[Math.floor(Math.random() * actualTypes.length)];
+      setDrawnType(finalType);
+      await new Promise(resolve => setTimeout(resolve, 80 + i * 10)); 
+      // Gradually slows down (80ms -> 220ms)
+    }
+    
+    setIsDrawingType(false);
+  };
 
   const resetFilters = () => {
     setQuantity(1);
@@ -88,6 +110,8 @@ export default function Lottery() {
     
     const activeQty = overrideQty || quantity;
     const activeFilters = overrideFilters || filters;
+    
+    setLastDrawConfig({ qty: activeQty, filters: activeFilters });
     
     try {
       const drawnPokemon: Pokemon[] = [];
@@ -268,6 +292,55 @@ export default function Lottery() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {drawnType && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" style={{ zoom: 1.11 }}>
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 30 }}
+              transition={{ type: "spring", damping: 15 }}
+              className="bg-cobble-800 border-4 border-blue-600 rounded-none p-8 max-w-md w-full shadow-[0_0_50px_rgba(37,99,235,0.3)] relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500"></div>
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mb-4">
+                  <Sparkles className="text-blue-400 w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-black text-white mb-2 drop-shadow-md">
+                  {isDrawingType ? 'Sorteando...' : 'Tipo Sorteado!'}
+                </h3>
+                <p className="text-cobble-200 text-base mb-6 font-medium">
+                  {isDrawingType ? 'Girando a roleta de tipos...' : 'O tipo que o destino escolheu para você é:'}
+                </p>
+                
+                <div className={cn("mb-8 transform transition-transform", isDrawingType ? "scale-125 opacity-70 blur-[1px]" : "scale-150")}>
+                  <PokemonTypeBadge type={drawnType} />
+                </div>
+
+                <div className="flex flex-col gap-3 w-full">
+                  <Button 
+                    onClick={handleDrawType} 
+                    disabled={isDrawingType}
+                    className="w-full !bg-blue-600 hover:!bg-blue-500 text-white text-lg py-3 shadow-lg"
+                  >
+                    <RefreshCw className={cn("w-5 h-5 mr-2", isDrawingType && "animate-spin")} /> Sortear Outro
+                  </Button>
+                  <Button 
+                    onClick={() => setDrawnType(null)} 
+                    disabled={isDrawingType}
+                    variant="secondary"
+                    className="w-full mt-2"
+                  >
+                    Fechar
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 relative z-10">
         
@@ -293,32 +366,34 @@ export default function Lottery() {
               </select>
             </div>
 
-            <div className="bg-black/30 p-3 border-2 border-cobble-700 group">
-              <h3 className="font-bold text-xs text-slate-200 mb-2 flex items-center tracking-widest"><Filter className="w-4 h-4 mr-2 text-slate-400" /> Tipo 1</h3>
-              <select
-                value={filters.type1}
-                onChange={(e) => updateFilter('type1', e.target.value)}
-                className="w-full bg-cobble-800 border-2 border-cobble-700 p-2 text-white outline-none capitalize font-bold shadow-inner cursor-pointer appearance-none"
-              >
-                {TYPES.map(t => (
-                  <option key={t} value={t} disabled={t !== 'all' && filters.type2 === t}>{t === 'all' ? 'Qualquer' : t}</option>
-                ))}
-              </select>
-            </div>
+            <div className="flex gap-2">
+              <div className="bg-black/30 p-3 border-2 border-cobble-700 group w-1/2">
+                <h3 className="font-bold text-xs text-slate-200 mb-2 flex items-center tracking-widest"><Filter className="w-4 h-4 mr-2 text-slate-400" /> Tipo 1</h3>
+                <select
+                  value={filters.type1}
+                  onChange={(e) => updateFilter('type1', e.target.value)}
+                  className="w-full bg-cobble-800 border-2 border-cobble-700 p-2 text-white outline-none capitalize font-bold shadow-inner cursor-pointer appearance-none"
+                >
+                  {TYPES.map(t => (
+                    <option key={t} value={t} disabled={t !== 'all' && filters.type2 === t}>{t === 'all' ? 'Qualquer' : t}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="bg-black/30 p-3 border-2 border-cobble-700 group">
-              <h3 className="font-bold text-xs text-slate-200 mb-2 flex items-center tracking-widest"><Filter className="w-4 h-4 mr-2 text-slate-400" /> Tipo 2</h3>
-              <select
-                value={filters.type2}
-                onChange={(e) => updateFilter('type2', e.target.value)}
-                className="w-full bg-cobble-800 border-2 border-cobble-700 p-2 text-white outline-none capitalize font-bold shadow-inner cursor-pointer appearance-none"
-              >
-                <option value="all">Qualquer</option>
-                <option value="none" className="text-red-400 font-bold">Nenhum (Único)</option>
-                {TYPES.filter(t => t !== 'all').map(t => (
-                  <option key={t} value={t} disabled={filters.type1 === t}>{t}</option>
-                ))}
-              </select>
+              <div className="bg-black/30 p-3 border-2 border-cobble-700 group w-1/2">
+                <h3 className="font-bold text-xs text-slate-200 mb-2 flex items-center tracking-widest"><Filter className="w-4 h-4 mr-2 text-slate-400" /> Tipo 2</h3>
+                <select
+                  value={filters.type2}
+                  onChange={(e) => updateFilter('type2', e.target.value)}
+                  className="w-full bg-cobble-800 border-2 border-cobble-700 p-2 text-white outline-none capitalize font-bold shadow-inner cursor-pointer appearance-none"
+                >
+                  <option value="all">Qualquer</option>
+                  <option value="none" className="text-red-400 font-bold">Nenhum</option>
+                  {TYPES.filter(t => t !== 'all').map(t => (
+                    <option key={t} value={t} disabled={filters.type1 === t}>{t}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="bg-black/30 p-3 border-2 border-cobble-700 group">
@@ -371,7 +446,7 @@ export default function Lottery() {
             <Button onClick={() => setShowRandomPrompt(true)} className="w-full !bg-purple-600 hover:!bg-purple-500 text-white !border-purple-800" size="sm">
               <Dices className="w-4 h-4 mr-2"/> 6 Pokémons Aleatórios
             </Button>
-            <Button onClick={resetFilters} variant="secondary" className="w-full text-xs" size="sm">
+            <Button onClick={resetFilters} variant="secondary" className="w-full text-xs mt-2" size="sm">
               Limpar Filtros
             </Button>
           </div>
@@ -410,39 +485,45 @@ export default function Lottery() {
         </div>
 
         {/* RIGHT COLUMN: Live Feed / History */}
-        <div className="xl:col-span-3 bg-cobble-800 border-4 border-cobble-700 p-4 shadow-xl flex flex-col h-fit max-h-[700px]">
-          <h2 className="text-xl font-black text-white mb-4 border-b-4 border-cobble-700 pb-2 flex items-center">
-            <HistoryIcon className="w-5 h-5 mr-2 text-yellow-400" /> Últimos Ganhadores
-          </h2>
-          
-          <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-             {history.slice(0, 15).map(h => (
-                <div 
-                  key={h.id} 
-                  onClick={() => viewHistoryResults(h.pokemons)}
-                  className="bg-cobble-900 border-2 border-cobble-700 p-2 hover:border-cobble-500 hover:bg-cobble-800 transition-colors cursor-pointer group"
-                  title="Clique para ver este resultado!"
-                >
-                   <div className="text-slate-200 group-hover:text-yellow-400 text-xs mb-2 font-bold tracking-wider transition-colors">
-                     Sorteio às {new Date(h.date).toLocaleTimeString()}
-                   </div>
-                   <div className="flex flex-wrap gap-2">
-                     {h.pokemons.map(p => (
-                        <div key={p.id} className="relative">
-                          <img 
-                            src={p.sprites.front_default} 
-                            className="w-12 h-12 bg-cobble-800 border-2 border-cobble-700 object-contain p-1" 
-                            alt={p.name} 
-                          />
-                        </div>
-                     ))}
-                   </div>
-                </div>
-             ))}
-             {history.length === 0 && (
-               <div className="text-slate-200 text-center mt-10 font-bold">Nenhum sorteio ainda.</div>
-             )}
+        <div className="xl:col-span-3 flex flex-col gap-6">
+          <div className="bg-cobble-800 border-4 border-cobble-700 p-4 shadow-xl flex flex-col h-fit max-h-[700px]">
+            <h2 className="text-xl font-black text-white mb-4 border-b-4 border-cobble-700 pb-2 flex items-center">
+              <HistoryIcon className="w-5 h-5 mr-2 text-yellow-400" /> Últimos Ganhadores
+            </h2>
+            
+            <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+               {history.slice(0, 15).map(h => (
+                  <div 
+                    key={h.id} 
+                    onClick={() => viewHistoryResults(h.pokemons)}
+                    className="bg-cobble-900 border-2 border-cobble-700 p-2 hover:border-cobble-500 hover:bg-cobble-800 transition-colors cursor-pointer group"
+                    title="Clique para ver este resultado!"
+                  >
+                     <div className="text-slate-200 group-hover:text-yellow-400 text-xs mb-2 font-bold tracking-wider transition-colors">
+                       Sorteio às {new Date(h.date).toLocaleTimeString()}
+                     </div>
+                     <div className="flex flex-wrap gap-2">
+                       {h.pokemons.map(p => (
+                          <div key={p.id} className="relative">
+                            <img 
+                              src={p.sprites.front_default} 
+                              className="w-12 h-12 bg-cobble-800 border-2 border-cobble-700 object-contain p-1" 
+                              alt={p.name} 
+                            />
+                          </div>
+                       ))}
+                     </div>
+                  </div>
+               ))}
+               {history.length === 0 && (
+                 <div className="text-slate-200 text-center mt-10 font-bold">Nenhum sorteio ainda.</div>
+               )}
+            </div>
           </div>
+
+          <Button onClick={handleDrawType} className="w-full !bg-blue-600 hover:!bg-blue-500 text-white !border-blue-800 shadow-xl py-6 border-4 text-xl font-black">
+            <Sparkles className="w-6 h-6 mr-3"/> Sortear um Tipo
+          </Button>
         </div>
       </div>
 
@@ -479,7 +560,14 @@ export default function Lottery() {
                   <Settings2 className="w-6 h-6 mr-3" /> Fechar Resultados
                 </Button>
                 <Button 
-                  onClick={() => { setResults([]); handleDraw(); }} 
+                  onClick={() => { 
+                    setResults([]); 
+                    if (lastDrawConfig) {
+                      handleDraw(lastDrawConfig.qty, lastDrawConfig.filters);
+                    } else {
+                      handleDraw();
+                    }
+                  }} 
                   size="lg" 
                   className="font-bold border-[4px] !bg-blue-600 hover:!bg-blue-500 !border-blue-800 text-xl py-4 px-8"
                 >
