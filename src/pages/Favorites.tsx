@@ -39,6 +39,14 @@ export default function Favorites() {
     };
   }, [favorites]);
 
+  const visibleList = pokemonList.filter(p => favorites.includes(p.id));
+
+  const handleToggleFavorite = (id: number, isFav: boolean) => {
+    if (!isFav) {
+      setPokemonList(prev => prev.filter(p => p.id !== id));
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-cobble-800 p-6 rounded-xl border border-cobble-700">
@@ -57,7 +65,7 @@ export default function Favorites() {
             <div key={i} className="h-64 rounded-xl bg-cobble-800 animate-pulse border border-cobble-700" />
           ))}
         </div>
-      ) : pokemonList.length === 0 ? (
+      ) : visibleList.length === 0 ? (
         <div className="text-center py-20 bg-cobble-800 rounded-xl border border-cobble-700">
           <Star className="w-16 h-16 text-cobble-600 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-cobble-300 mb-2">Nenhum Pokémon favoritado ainda.</h2>
@@ -69,9 +77,9 @@ export default function Favorites() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {pokemonList.map(p => (
-            <div key={p.id} className="h-full flex flex-col">
-              <PokemonCard pokemon={p} />
+          {visibleList.map(p => (
+            <div key={p.id} className="h-full flex flex-col transition-all">
+              <PokemonCard pokemon={p} onToggleFavorite={handleToggleFavorite} />
             </div>
           ))}
         </div>

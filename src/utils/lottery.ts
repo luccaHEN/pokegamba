@@ -89,8 +89,13 @@ export async function drawPokemon(
     // Filter out mega evolutions, g-max, and special forms (IDs > 10000), and already drawn IDs
     possibleIds = possibleIds.filter(id => id <= 10000 && !excludeIds.includes(id));
 
-    // Increase attempts since we might need to filter evolution stages via API
-    for (let attempts = 0; attempts < 30; attempts++) {
+    // Filter out types already drawn, but preserve any type explicitly requested in filter
+    const effectiveExcludeTypes = excludeTypes.filter(
+      t => t !== filters.type1 && (filters.type2 === 'none' || t !== filters.type2)
+    );
+
+    // Increase attempts since we might need to filter unique types and evolution stages via API
+    for (let attempts = 0; attempts < 60; attempts++) {
       if (possibleIds.length === 0) throw new Error("Nenhum Pokémon encontrado com esses filtros.");
       
       const randomIndex = Math.floor(Math.random() * possibleIds.length);
@@ -104,8 +109,8 @@ export async function drawPokemon(
         continue;
       }
 
-      if (excludeTypes.length > 0) {
-        const hasExcludedType = pokemon.types.some((t: any) => excludeTypes.includes(t.type.name));
+      if (effectiveExcludeTypes.length > 0) {
+        const hasExcludedType = pokemon.types.some((t: any) => effectiveExcludeTypes.includes(t.type.name));
         if (hasExcludedType) {
           possibleIds.splice(randomIndex, 1);
           continue;

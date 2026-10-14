@@ -88,6 +88,7 @@ export interface LotteryHistorySession {
   date: string;
   quantityRequested: number;
   filters: string[];
+  participants?: string[];
 }
 
 export interface UserSettings {

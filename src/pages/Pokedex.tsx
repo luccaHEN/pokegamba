@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PokemonCard } from '../components/pokemon/PokemonCard';
 import { Input } from '../components/ui/Input';
@@ -34,10 +34,23 @@ export default function Pokedex() {
   const [page, setPage] = useState(0);
   const limit = 20;
 
-  // Load all names once for smart search
+  // Load all names once for smart search (cached in pokeApi)
   useEffect(() => {
     pokeApi.getAllPokemonList().then(res => setAllNames(res.results)).catch(console.error);
   }, []);
+
+  // Pre-indexed list with cached IDs and lowercase names for fast lookups
+  const indexedList = useMemo(() => {
+    return allNames.map(p => {
+      const parts = p.url.split('/');
+      const id = parts[parts.length - 2] || '';
+      return {
+        name: p.name.toLowerCase(),
+        id,
+        rawName: p.name
+      };
+    });
+  }, [allNames]);
 
   useEffect(() => {
     let isMounted = true;
@@ -48,34 +61,34 @@ export default function Pokedex() {
         const term = searchTerm.toLowerCase().trim();
         
         if (term.length > 0) {
-          // Smart Search
-          // 1. Try exact start or includes, or exact ID match
-          let matches = allNames.filter(p => {
-            const idMatch = p.url.split('/').filter(Boolean).pop();
-            return p.name.startsWith(term) || p.name.includes(term) || idMatch === term;
+          // 1. Direct match: Exact ID, starts with, or includes
+          let matches = indexedList.filter(p => {
+            return p.id === term || p.name.startsWith(term) || p.name.includes(term);
           });
 
-          // Prioritize pokemon that start with the letter/term
+          // Prioritize pokemon that start with the query
           matches.sort((a, b) => {
             const aStarts = a.name.startsWith(term);
             const bStarts = b.name.startsWith(term);
             if (aStarts && !bStarts) return -1;
             if (!aStarts && bStarts) return 1;
-            return 0; // Keep original ID order if both match the same way
+            return 0;
           });
           
-          // 2. If nothing found and term is at least 3 chars, try fuzzy search (typos)
+          // 2. Fuzzy match for typos only if no matches and term is >= 3 chars
+          // Optimized: prune items whose length difference already exceeds threshold
           if (matches.length === 0 && term.length >= 3) {
-            matches = allNames
+            matches = indexedList
+              .filter(p => Math.abs(p.name.length - term.length) <= 2)
               .map(p => ({ ...p, dist: levenshtein(p.name, term) }))
-              .filter(p => p.dist <= 2) // Allow up to 2 typos
+              .filter(p => p.dist <= 2)
               .sort((a, b) => a.dist - b.dist);
           }
           
           const toFetch = matches.slice(0, limit);
           
           if (toFetch.length > 0) {
-            const detailsPromises = toFetch.map(p => pokeApi.getPokemon(p.name));
+            const detailsPromises = toFetch.map(p => pokeApi.getPokemon(p.rawName));
             const details = await Promise.all(detailsPromises);
             if (isMounted) setPokemonList(details);
           } else {
@@ -97,13 +110,13 @@ export default function Pokedex() {
 
     const timer = setTimeout(() => {
       loadPokemon();
-    }, 400);
+    }, 250);
 
     return () => {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [page, searchTerm, allNames]);
+  }, [page, searchTerm, indexedList]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">

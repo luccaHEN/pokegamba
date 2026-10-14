@@ -6,6 +6,7 @@ import type { Pokemon, PokemonSpecies } from '../types/pokemon';
 import { PokemonTypeBadge } from '../components/pokemon/PokemonTypeBadge';
 import { Button } from '../components/ui/Button';
 import { cn } from '../utils/cn';
+import { SmogonBuilds } from '../components/pokemon/SmogonBuilds';
 
 export default function PokemonDetails() {
   const { id } = useParams<{ id: string }>();
@@ -255,6 +256,11 @@ export default function PokemonDetails() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Smogon Competitive Builds */}
+          <div className="pt-8 border-t border-cobble-700">
+            <SmogonBuilds pokemonName={pokemon.name} />
           </div>
 
           {/* Evolution Chain */}

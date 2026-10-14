@@ -44,8 +44,8 @@ export function Gachapon({ isDrawing, queue = [] }: { isDrawing: boolean, queue?
     <div className="relative flex flex-col items-center justify-center my-8">
       <div className="relative w-64 flex flex-col items-center drop-shadow-[0_20px_30px_rgba(0,0,0,0.6)]">
         
-        <div className="w-56 h-56 rounded-t-full bg-gradient-to-tr from-blue-300/10 via-blue-100/20 to-white/40 border-8 border-b-0 border-slate-300 relative overflow-hidden backdrop-blur-md z-10 shadow-[inset_-10px_-10px_20px_rgba(0,0,0,0.3),inset_10px_10px_20px_rgba(255,255,255,0.6)]">
-          <div className="absolute top-4 right-6 w-20 h-10 bg-gradient-to-b from-white/70 to-transparent rounded-full rotate-[-35deg] blur-[2px]"></div>
+        <div className="w-56 h-56 rounded-t-full bg-gradient-to-tr from-sky-400/20 via-sky-200/25 to-white/40 border-8 border-b-0 border-slate-300 relative overflow-hidden z-10 shadow-[inset_-10px_-10px_20px_rgba(0,0,0,0.3),inset_10px_10px_20px_rgba(255,255,255,0.6)]">
+          <div className="absolute top-4 right-6 w-20 h-10 bg-gradient-to-b from-white/70 to-transparent rounded-full rotate-[-35deg] pointer-events-none"></div>
 
           {capsules.map((cap) => (
             <motion.div
