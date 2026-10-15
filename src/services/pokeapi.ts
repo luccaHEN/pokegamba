@@ -70,5 +70,13 @@ export const pokeApi = {
 
   async getPokemonByType(type: string): Promise<any> {
     return this.get<any>(`/type/${type}`);
+  },
+
+  async getAbility(idOrName: string | number): Promise<any> {
+    return this.get<any>(`/ability/${idOrName}`);
+  },
+
+  async getMove(idOrName: string | number): Promise<any> {
+    return this.get<any>(`/move/${idOrName}`);
   }
 };

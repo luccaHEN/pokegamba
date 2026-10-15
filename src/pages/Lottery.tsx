@@ -398,12 +398,21 @@ export default function Lottery() {
   };
 
   const handleNextStarterSpin = () => {
+    // Find the next participant who does not have a starter yet
+    const pendingTrainers = participants.filter(p => !Object.values(claimedStarters).includes(p));
+    const nextTrainer = pendingTrainers.length > 0 ? pendingTrainers[0] : null;
+
+    if (nextTrainer) {
+      setSelectedTrainer(nextTrainer);
+    }
+
     setIsSpinningStarter(false);
     setActiveSpinFinished(false);
     setActiveSpinWinnerDef(null);
     setActiveSpinPokemon(null);
+
     setTimeout(() => {
-      handleDrawStarter();
+      handleDrawStarter(nextTrainer || undefined);
     }, 250);
   };
 
@@ -1428,15 +1437,18 @@ export default function Lottery() {
                         Card Discord
                       </Button>
 
-                      {participants.length > 1 && participants.some(p => !Object.values(claimedStarters).includes(p)) && (
-                        <Button
-                          onClick={handleNextStarterSpin}
-                          className="flex-1 min-w-[180px] !bg-blue-600 hover:!bg-blue-500 text-white font-black text-sm py-2.5 border-2 border-blue-700 shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          Girar Próximo Inicial
-                        </Button>
-                      )}
+                      {participants.length > 1 && participants.some(p => !Object.values(claimedStarters).includes(p)) && (() => {
+                        const nextPending = participants.find(p => !Object.values(claimedStarters).includes(p));
+                        return (
+                          <Button
+                            onClick={handleNextStarterSpin}
+                            className="flex-1 min-w-[200px] !bg-blue-600 hover:!bg-blue-500 text-white font-black text-sm py-2.5 border-2 border-blue-700 shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            Girar p/ {nextPending ? nextPending : 'Próximo'}
+                          </Button>
+                        );
+                      })()}
 
                       <Button
                         onClick={handleCloseRoulette}
@@ -1528,15 +1540,29 @@ export default function Lottery() {
                   results.length === 4 ? "grid-cols-2 sm:grid-cols-2 md:grid-cols-4 max-w-5xl" :
                   "grid-cols-2 sm:grid-cols-3 md:grid-cols-6 max-w-6xl"
                 )}>
-                  {results.map((p, idx) => (
-                    <div key={`${p.id}-${idx}`} className="transform transition-transform hover:scale-[1.02]">
-                      <CardReveal 
-                        pokemon={p} 
-                        idx={idx} 
-                        compact={results.length >= 3}
-                      />
-                    </div>
-                  ))}
+                  {results.map((p, idx) => {
+                    const owner = currentSessionParticipants[idx] || (participants.length === 1 ? participants[0] : undefined);
+                    return (
+                      <div key={`${p.id}-${idx}`} className="transform transition-transform hover:scale-[1.02]">
+                        <CardReveal 
+                          pokemon={p} 
+                          idx={idx} 
+                          compact={results.length >= 3}
+                          participant={owner}
+                          availableParticipants={participants}
+                          onSelectParticipant={(newOwner) => {
+                            const updated = [...currentSessionParticipants];
+                            updated[idx] = newOwner;
+                            setCurrentSessionParticipants(updated);
+                            // Also update claimed starters if in starter draft
+                            if (lotteryTab === 'starters') {
+                              setClaimedStarters(prev => ({ ...prev, [p.id]: newOwner }));
+                            }
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

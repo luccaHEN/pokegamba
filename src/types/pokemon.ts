@@ -10,6 +10,26 @@ export interface PokemonListItem {
   url: string;
 }
 
+export interface PokemonMoveVersion {
+  level_learned_at: number;
+  move_learn_method: {
+    name: string;
+    url: string;
+  };
+  version_group: {
+    name: string;
+    url: string;
+  };
+}
+
+export interface PokemonMoveEntry {
+  move: {
+    name: string;
+    url: string;
+  };
+  version_group_details: PokemonMoveVersion[];
+}
+
 export interface Pokemon {
   id: number;
   name: string;
@@ -52,6 +72,7 @@ export interface Pokemon {
     is_hidden: boolean;
     slot: number;
   }[];
+  moves?: PokemonMoveEntry[];
   cries?: {
     latest: string;
     legacy: string;
@@ -80,6 +101,13 @@ export interface PokemonSpecies {
   evolution_chain: {
     url: string;
   };
+  varieties?: {
+    is_default: boolean;
+    pokemon: {
+      name: string;
+      url: string;
+    };
+  }[];
 }
 
 export interface LotteryHistorySession {

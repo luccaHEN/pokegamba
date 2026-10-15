@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Menu, X, Dices, Book, History, Star, Type } from 'lucide-react';
+import { Menu, X, Dices, Book, History, Star, Type, Package, Compass } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 const navLeft = [
   { name: 'Sorteio', href: '/sorteio', icon: Dices },
   { name: 'Pokédex', href: '/pokedex', icon: Book },
+  { name: 'Drops / Loot', href: '/loot', icon: Package },
 ];
 
 const navRight = [
+  { name: 'Guia', href: '/guia', icon: Compass },
   { name: 'Favoritos', href: '/favoritos', icon: Star },
   { name: 'Histórico', href: '/historico', icon: History },
 ];
@@ -71,7 +73,7 @@ export default function Navbar() {
           </div>
 
           {/* Desktop Left Nav */}
-          <div className="hidden md:flex flex-1 justify-end space-x-2 pr-8">
+          <div className="hidden md:flex flex-1 justify-end space-x-1.5 lg:space-x-2 pr-4 lg:pr-6">
             {navLeft.map(item => <NavItem key={item.name} item={item} />)}
           </div>
 
@@ -79,7 +81,7 @@ export default function Navbar() {
           <div className="flex-shrink-0 flex items-center justify-center relative group cursor-pointer">
             <div className="absolute inset-0 bg-yellow-400 blur-[40px] opacity-40 rounded-full animate-pulse group-hover:opacity-60 transition-opacity duration-500"></div>
             <h1 
-              className="text-5xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-yellow-100 via-yellow-400 to-yellow-600 drop-shadow-[0_5px_15px_rgba(234,179,8,0.8)] relative z-10 transition-transform duration-500 group-hover:scale-110" 
+              className="text-4xl lg:text-5xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-yellow-100 via-yellow-400 to-yellow-600 drop-shadow-[0_5px_15px_rgba(234,179,8,0.8)] relative z-10 transition-transform duration-500 group-hover:scale-110" 
               style={{ 
                 WebkitTextStroke: '2px #78350f', 
                 filter: 'drop-shadow(0px 0px 15px rgba(250,204,21,0.6))' 
@@ -90,7 +92,7 @@ export default function Navbar() {
           </div>
 
           {/* Desktop Right Nav */}
-          <div className="hidden md:flex flex-1 justify-start space-x-2 pl-8">
+          <div className="hidden md:flex flex-1 justify-start space-x-1.5 lg:space-x-2 pl-4 lg:pl-6">
             {navRight.map(item => <NavItem key={item.name} item={item} />)}
           </div>
 

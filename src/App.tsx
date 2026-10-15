@@ -5,6 +5,8 @@ import Pokedex from './pages/Pokedex';
 import PokemonDetails from './pages/PokemonDetails';
 import History from './pages/History';
 import Favorites from './pages/Favorites';
+import LootTable from './pages/LootTable';
+import Guide from './pages/Guide';
 
 function App() {
   return (
@@ -15,8 +17,10 @@ function App() {
           <Route path="sorteio" element={<Lottery />} />
           <Route path="pokedex" element={<Pokedex />} />
           <Route path="pokemon/:id" element={<PokemonDetails />} />
-          <Route path="historico" element={<History />} />
+          <Route path="loot" element={<LootTable />} />
+          <Route path="guia" element={<Guide />} />
           <Route path="favoritos" element={<Favorites />} />
+          <Route path="historico" element={<History />} />
         </Route>
       </Routes>
     </BrowserRouter>
