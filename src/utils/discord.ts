@@ -100,6 +100,24 @@ export function formatLotteryForDiscord(
   return lines.join('\n');
 }
 
+export function formatDraftOrderForDiscord(order: string[]): string {
+  const lines: string[] = [];
+  lines.push('# 🎯 ` POKEGAMBA ` • ORDEM OFICIAL DO SORTEIO DOS INICIAIS 🏆');
+  lines.push('');
+  lines.push('A roleta girou no estilo *Spin The Wheel* e definiu a ordem em que os treinadores sortearão seus Pokémon iniciais:');
+  lines.push('');
+
+  order.forEach((trainer, index) => {
+    const pos = index + 1;
+    lines.push(`> **${pos}º Lugar:** \` ${trainer} \``);
+  });
+
+  lines.push('');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('🌟 *Que venham os melhores iniciais para a jornada!*');
+  return lines.join('\n');
+}
+
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     if (navigator?.clipboard?.writeText) {

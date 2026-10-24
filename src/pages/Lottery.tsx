@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Dices, Filter, Settings2, Sparkles, RefreshCw, History as HistoryIcon, 
-  Users, Plus, X, Share2, Check, Zap, Shuffle, Image as ImageIcon, Crown, AlertTriangle, BookOpen 
+  Users, Plus, X, Share2, Check, Zap, Shuffle, Image as ImageIcon, Crown, AlertTriangle, BookOpen, Volume2, VolumeX 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../components/ui/Button';
@@ -19,9 +19,11 @@ import { CardReveal } from '../components/pokemon/CardReveal';
 import { PokemonTypeBadge } from '../components/pokemon/PokemonTypeBadge';
 import { StartersDraftBoard } from '../components/lottery/StartersDraftBoard';
 import { StartersRoulette } from '../components/lottery/StartersRoulette';
+import { TrainerWheelModal } from '../components/lottery/TrainerWheelModal';
 import { STARTER_POKEMON_DEFS, formatStartersDraftForDiscord } from '../utils/starters';
 import type { StarterPokemonDef } from '../utils/starters';
 import { pokeApi } from '../services/pokeapi';
+import { playStarterSound, stopStarterSound, isStarterVoiceMuted, setStarterVoiceMuted } from '../utils/audio';
 
 const TYPES = ['all', 'normal', 'fire', 'water', 'grass', 'electric', 'ice', 'fighting', 'poison', 'ground', 'flying', 'psychic', 'bug', 'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy'];
 const GENS = [
@@ -56,6 +58,19 @@ export default function Lottery() {
   const [activeSpinFinished, setActiveSpinFinished] = useState(false);
   const [activeSpinPokemon, setActiveSpinPokemon] = useState<Pokemon | null>(null);
 
+  // Trainer Wheel Modal State (SpinTheWheel for Draft Order)
+  const [isTrainerWheelOpen, setIsTrainerWheelOpen] = useState(false);
+  const [draftOrder, setDraftOrder] = useLocalStorage<string[]>('cobblemon-draft-order', []);
+
+  // Pokémon custom voices mute preference
+  const [voiceMuted, setVoiceMutedState] = useState<boolean>(() => isStarterVoiceMuted());
+
+  const handleToggleVoiceMute = () => {
+    const next = !voiceMuted;
+    setVoiceMutedState(next);
+    setStarterVoiceMuted(next);
+  };
+
   // History & Session
   const [history, setHistory] = useLocalStorage<LotteryHistorySession[]>('cobblemon-history', []);
   const [currentSessionParticipants, setCurrentSessionParticipants] = useState<string[]>([]);
@@ -79,6 +94,23 @@ export default function Lottery() {
   const activeSelectedTrainer = (selectedTrainer !== 'all' && participants.includes(selectedTrainer))
     ? selectedTrainer
     : (participants.length === 1 ? participants[0] : 'all');
+
+  // Starters Draft: trainers ordered by draftOrder from the wheel, followed by any remaining trainers
+  const orderedDraftParticipants = useMemo(() => {
+    const fromWheel = draftOrder.filter(name => participants.includes(name));
+    const notInWheel = participants.filter(name => !draftOrder.includes(name));
+    return [...fromWheel, ...notInWheel];
+  }, [draftOrder, participants]);
+
+  // Auto-add last remaining trainer when only 1 is left to be drafted
+  useEffect(() => {
+    if (participants.length > 1 && draftOrder.length > 0) {
+      const remaining = participants.filter(p => !draftOrder.includes(p));
+      if (remaining.length === 1) {
+        setDraftOrder([...draftOrder, remaining[0]]);
+      }
+    }
+  }, [participants, draftOrder, setDraftOrder]);
 
   // Tab 1: Custom Filters State
   const [quantity, setQuantity] = useLocalStorage('cobblemon-lottery-quantity', 1);
@@ -320,11 +352,13 @@ export default function Lottery() {
       return;
     }
 
-    // Determine target trainer
+    // Determine target trainer (prioritizes draft order from the trainer wheel if defined)
     const recipient = targetTrainerName || 
       (activeSelectedTrainer !== 'all' 
         ? activeSelectedTrainer 
-        : (participants.length > 0 ? (participants.find(p => !Object.values(claimedStarters).includes(p)) || participants[0]) : 'Treinador'));
+        : (draftOrder.length > 0 
+            ? (draftOrder.find(p => !Object.values(claimedStarters).includes(p)) || participants.find(p => !Object.values(claimedStarters).includes(p)) || participants[0] || 'Treinador')
+            : (participants.length > 0 ? (participants.find(p => !Object.values(claimedStarters).includes(p)) || participants[0]) : 'Treinador')));
 
     // Check if recipient already has a starter
     const existingStarterId = Object.entries(claimedStarters).find(([_, trainer]) => trainer === recipient)?.[0];
@@ -348,6 +382,9 @@ export default function Lottery() {
   const handleStartersRouletteComplete = async () => {
     if (!activeSpinWinnerDef) return;
     setActiveSpinFinished(true);
+
+    // Play custom recorded friend audio for the winning starter
+    playStarterSound(activeSpinWinnerDef.id);
 
     try {
       // Fetch full Pokemon object from PokeAPI
@@ -375,6 +412,7 @@ export default function Lottery() {
   };
 
   const handleOpenWinnerDetails = () => {
+    stopStarterSound();
     const starterId = activeSpinWinnerDef?.id || activeSpinPokemon?.id;
     setIsSpinningStarter(false);
     setActiveSpinFinished(false);
@@ -386,6 +424,7 @@ export default function Lottery() {
   };
 
   const handleOpenLotteryCard = () => {
+    stopStarterSound();
     if (activeSpinPokemon) {
       setResults([activeSpinPokemon]);
       setCurrentSessionParticipants([activeSpinTrainer]);
@@ -398,8 +437,10 @@ export default function Lottery() {
   };
 
   const handleNextStarterSpin = () => {
-    // Find the next participant who does not have a starter yet
-    const pendingTrainers = participants.filter(p => !Object.values(claimedStarters).includes(p));
+    stopStarterSound();
+    // Find the next participant who does not have a starter yet (prioritizes draft order if defined)
+    const trainerPool = draftOrder.length > 0 ? draftOrder : participants;
+    const pendingTrainers = trainerPool.filter(p => !Object.values(claimedStarters).includes(p));
     const nextTrainer = pendingTrainers.length > 0 ? pendingTrainers[0] : null;
 
     if (nextTrainer) {
@@ -417,6 +458,7 @@ export default function Lottery() {
   };
 
   const handleCloseRoulette = () => {
+    stopStarterSound();
     setIsSpinningStarter(false);
     setActiveSpinFinished(false);
     setActiveSpinWinnerDef(null);
@@ -640,6 +682,41 @@ export default function Lottery() {
                 </div>
               )}
             </div>
+
+            {/* Spin The Wheel Launcher Button */}
+            <button
+              onClick={() => setIsTrainerWheelOpen(true)}
+              className="w-full mb-2.5 py-1.5 px-2.5 bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 hover:from-amber-500/30 hover:to-yellow-500/40 border border-yellow-500/60 rounded-lg flex items-center justify-between text-xs font-black text-yellow-300 transition-all shadow-sm cursor-pointer group active:scale-[0.98]"
+              title="Abrir a roleta circular estilo SpinTheWheel para sortear a ordem dos treinadores"
+            >
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="text-base">🎡</span>
+                <span className="truncate">Roleta de Ordem dos Treinadores</span>
+              </div>
+              <span className="text-[10px] bg-yellow-500 text-cobble-950 px-2 py-0.5 rounded font-black shrink-0 shadow">
+                GIRAR
+              </span>
+            </button>
+
+            {/* Quick Draft Order Preview Pill if set */}
+            {draftOrder.length > 0 && (
+              <div className="mb-2 bg-black/50 border border-yellow-500/40 px-2 py-1.5 rounded-lg flex items-center justify-between text-[11px] gap-1">
+                <div className="flex items-center gap-1.5 text-yellow-300 font-bold truncate">
+                  <Crown className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+                  <span className="text-cobble-400 font-normal">Ordem:</span>
+                  <span className="truncate">
+                    {draftOrder.slice(0, 3).map((t, idx) => `${idx + 1}º ${t}`).join(' ➔ ')}
+                    {draftOrder.length > 3 ? ` +${draftOrder.length - 3}` : ''}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsTrainerWheelOpen(true)}
+                  className="text-[10px] text-yellow-400 hover:text-white underline font-bold shrink-0 cursor-pointer ml-1"
+                >
+                  Ver
+                </button>
+              </div>
+            )}
 
             {/* Input to add trainer */}
             <div className="flex gap-1.5 mb-2">
@@ -1040,56 +1117,137 @@ export default function Lottery() {
             {/* TAB CONTENT 4: STARTERS DRAFT */}
             {lotteryTab === 'starters' && (
               <div className="space-y-2.5 animate-in fade-in duration-200">
+                {/* Roleta de Ordem Banner Button */}
+                <button
+                  onClick={() => setIsTrainerWheelOpen(true)}
+                  className="w-full py-2 px-3 bg-gradient-to-r from-yellow-500/20 via-amber-500/30 to-yellow-500/20 hover:from-yellow-500/30 hover:to-amber-500/40 border-2 border-yellow-500/70 rounded-xl flex items-center justify-between text-xs font-black text-yellow-300 transition-all shadow-md cursor-pointer group active:scale-[0.98]"
+                  title="Abrir a roleta circular estilo SpinTheWheel para sortear a ordem dos treinadores"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl group-hover:scale-110 transition-transform">🎡</span>
+                    <div className="text-left">
+                      <span className="block leading-tight text-white font-black">Roleta de Ordem dos Treinadores</span>
+                      <span className="text-[10px] text-yellow-400 font-bold">
+                        {draftOrder.length > 0 
+                          ? `${draftOrder.length}/${participants.length} na ordem definida` 
+                          : 'Sorteie quem escolhe o inicial 1º, 2º, 3º...'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="bg-yellow-500 text-cobble-950 font-black text-[10px] px-2.5 py-1 rounded-lg shadow uppercase">
+                    {draftOrder.length > 0 ? 'Ver Ordem' : 'Girar Roleta'}
+                  </span>
+                </button>
+
                 {/* Header Stats */}
                 <div className="bg-black/30 p-2.5 border-2 border-cobble-700">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-slate-200 flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-yellow-400" /> Draft 27 Iniciais
+                  <div className="flex items-center justify-between mb-1 gap-1">
+                    <span className="text-xs font-bold text-slate-200 flex items-center gap-1 truncate">
+                      <Sparkles className="w-3.5 h-3.5 text-yellow-400 shrink-0" /> Draft 27 Iniciais
                     </span>
-                    <span className="text-xs bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-500/40">
-                      {27 - Object.keys(claimedStarters).length}/27 Disponíveis
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Pokemon Voices Mute Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={handleToggleVoiceMute}
+                        className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 cursor-pointer transition-colors shadow-sm",
+                          voiceMuted
+                            ? "bg-red-950/70 text-red-300 border-red-500/50 hover:bg-red-900/80"
+                            : "bg-cobble-800 text-cobble-300 border-cobble-600 hover:text-white"
+                        )}
+                        title={voiceMuted ? "Vozes dos Pokémon mutadas. Clique para ativar som." : "Vozes dos Pokémon ativadas. Clique para mutar."}
+                      >
+                        {voiceMuted ? (
+                          <>
+                            <VolumeX className="w-3 h-3 text-red-400" />
+                            <span>Vozes: Mudo</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3 h-3 text-emerald-400" />
+                            <span>Vozes: Ativas</span>
+                          </>
+                        )}
+                      </button>
+
+                      <span className="text-xs bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-500/40">
+                        {27 - Object.keys(claimedStarters).length}/27 Disp.
+                      </span>
+                    </div>
                   </div>
                   <p className="text-[11px] text-cobble-400 leading-tight">
                     Sorteio exclusivo dos 27 iniciais (Gens 1-9). Cada inicial sorteado sai do pool para que ninguém receba Pokémon repetido!
                   </p>
                 </div>
 
-                {/* Participants Status List */}
-                {participants.length > 0 && (
+                {/* Participants Status List (Ordered by Draft Order) */}
+                {orderedDraftParticipants.length > 0 && (
                   <div className="bg-black/30 p-2 border-2 border-cobble-700 space-y-1">
                     <div className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
-                      <span>Status dos Treinadores:</span>
+                      <span className="flex items-center gap-1">
+                        <span>Status dos Treinadores:</span>
+                        {draftOrder.length > 0 && (
+                          <span className="text-[9px] bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 px-1 rounded font-bold">
+                            Ordem da Roleta
+                          </span>
+                        )}
+                      </span>
                       <span className="text-[10px] text-cobble-400">
                         {participants.filter(p => Object.values(claimedStarters).includes(p)).length}/{participants.length} com inicial
                       </span>
                     </div>
-                    <div className="max-h-24 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                      {participants.map((name) => {
-                        const starterEntry = Object.entries(claimedStarters).find(([_, t]) => t === name);
+                    <div className="max-h-32 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                      {orderedDraftParticipants.map((name) => {
+                        const starterEntry = Object.entries(claimedStarters).find(([, t]) => t === name);
                         const starterId = starterEntry ? Number(starterEntry[0]) : null;
                         const starterDef = starterId ? STARTER_POKEMON_DEFS.find(s => s.id === starterId) : null;
                         const isTarget = activeSelectedTrainer === name;
+
+                        const draftIndex = draftOrder.indexOf(name);
+                        const isDrafted = draftIndex !== -1;
+                        const orderLabel = isDrafted ? `${draftIndex + 1}º` : '—';
+
+                        const nextPending = orderedDraftParticipants.find(p => !Object.values(claimedStarters).includes(p));
+                        const isNext = nextPending === name && !starterDef;
 
                         return (
                           <div
                             key={name}
                             onClick={() => setSelectedTrainer(name)}
                             className={cn(
-                              "p-1 rounded border flex items-center justify-between text-xs cursor-pointer transition-all",
-                              isTarget ? "border-yellow-400 bg-yellow-500/10" : "border-cobble-700 bg-cobble-900/60 hover:border-cobble-500"
+                              "p-1.5 rounded border flex items-center justify-between text-xs cursor-pointer transition-all",
+                              isTarget 
+                                ? "border-yellow-400 bg-yellow-500/15 ring-1 ring-yellow-400/50" 
+                                : isNext
+                                ? "border-amber-500/60 bg-amber-500/10 hover:border-amber-400"
+                                : "border-cobble-700 bg-cobble-900/60 hover:border-cobble-500"
                             )}
                           >
-                            <span className="font-bold flex items-center gap-1 text-slate-200 text-[11px]">
-                              <span>👑</span> {name}
-                            </span>
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="text-[11px] font-black w-6 shrink-0 text-yellow-400 font-mono text-center">
+                                {orderLabel}
+                              </span>
+                              <span className="font-bold flex items-center gap-1 text-slate-200 text-[11px] truncate">
+                                <span>👑</span>
+                                <span className="truncate">{name}</span>
+                              </span>
+                              {isNext && (
+                                <span className="text-[9px] bg-yellow-500 text-cobble-950 font-black px-1 rounded animate-pulse shrink-0">
+                                  Vez
+                                </span>
+                              )}
+                            </div>
+
                             {starterDef ? (
-                              <span className="font-bold text-[10px] text-emerald-400 flex items-center gap-1">
+                              <span className="font-bold text-[10px] text-emerald-400 flex items-center gap-1 shrink-0 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30">
                                 <span>{starterDef.type === 'grass' ? '🌿' : starterDef.type === 'fire' ? '🔥' : '💧'}</span>
                                 {starterDef.name}
                               </span>
                             ) : (
-                              <span className="text-[10px] text-cobble-400 italic">Aguardando giro</span>
+                              <span className="text-[10px] text-cobble-400 italic shrink-0">
+                                Aguardando giro
+                              </span>
                             )}
                           </div>
                         );
@@ -1106,7 +1264,13 @@ export default function Lottery() {
                     className="w-full !bg-emerald-600 hover:!bg-emerald-500 text-white font-black text-xs py-2 shadow-md border-2 border-emerald-700"
                   >
                     <Dices className="w-4 h-4 mr-1.5" />
-                    {isSpinningStarter ? 'Girando Roleta...' : activeSelectedTrainer !== 'all' ? `Sortear Inicial para ${activeSelectedTrainer}` : 'Sortear Próximo Inicial'}
+                    {isSpinningStarter 
+                      ? 'Girando Roleta...' 
+                      : activeSelectedTrainer !== 'all' 
+                      ? `Sortear Inicial para ${activeSelectedTrainer}` 
+                      : (orderedDraftParticipants.find(p => !Object.values(claimedStarters).includes(p))
+                          ? `Sortear Inicial para ${orderedDraftParticipants.find(p => !Object.values(claimedStarters).includes(p))}`
+                          : 'Sortear Próximo Inicial')}
                   </Button>
 
                   {participants.length > 1 && participants.some(p => !Object.values(claimedStarters).includes(p)) && (
@@ -1211,6 +1375,7 @@ export default function Lottery() {
             <StartersDraftBoard 
               claimedStarters={claimedStarters} 
               highlightedId={activeSpinWinnerDef?.id || null}
+              onSelectStarter={(starter) => playStarterSound(starter.id)}
               className="w-full my-auto"
             />
           ) : (
@@ -1409,6 +1574,49 @@ export default function Lottery() {
                       </span>
                     </div>
 
+                    {/* Audio Play & Mute Controls */}
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => playStarterSound(activeSpinWinnerDef.id)}
+                        disabled={voiceMuted}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black rounded-full border shadow-sm transition-all group",
+                          voiceMuted 
+                            ? "bg-cobble-800 text-cobble-500 border-cobble-700 cursor-not-allowed opacity-60" 
+                            : "bg-yellow-500/20 hover:bg-yellow-500/30 active:scale-95 text-yellow-300 border-yellow-500/50 cursor-pointer"
+                        )}
+                        title={voiceMuted ? "Vozes mutadas no momento" : "Ouvir a voz deste inicial"}
+                      >
+                        <Volume2 className="w-3.5 h-3.5 text-yellow-400 group-hover:scale-110 transition-transform" />
+                        <span>Ouvir Voz</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleToggleVoiceMute}
+                        className={cn(
+                          "inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full border transition-colors cursor-pointer",
+                          voiceMuted
+                            ? "bg-red-950/70 text-red-300 border-red-500/50 hover:bg-red-900/70"
+                            : "bg-cobble-800 text-cobble-300 border-cobble-600 hover:text-white"
+                        )}
+                        title={voiceMuted ? "Desmutar vozes dos Pokémon" : "Mutar vozes dos Pokémon"}
+                      >
+                        {voiceMuted ? (
+                          <>
+                            <VolumeX className="w-3.5 h-3.5 text-red-400" />
+                            <span>Mutado</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5 text-cobble-400" />
+                            <span>Mutar Vozes</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
                     {/* Recipient Trainer Banner */}
                     <div className="w-full bg-yellow-500/15 border-2 border-yellow-500/50 rounded-xl p-3 mb-4 text-sm font-bold text-yellow-300 flex items-center justify-center gap-2">
                       <span className="text-lg">🎉</span>
@@ -1438,7 +1646,7 @@ export default function Lottery() {
                       </Button>
 
                       {participants.length > 1 && participants.some(p => !Object.values(claimedStarters).includes(p)) && (() => {
-                        const nextPending = participants.find(p => !Object.values(claimedStarters).includes(p));
+                        const nextPending = orderedDraftParticipants.find(p => !Object.values(claimedStarters).includes(p));
                         return (
                           <Button
                             onClick={handleNextStarterSpin}
@@ -1713,6 +1921,23 @@ export default function Lottery() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* TRAINER ORDER WHEEL MODAL (Spin The Wheel) */}
+      <TrainerWheelModal
+        isOpen={isTrainerWheelOpen}
+        onClose={() => setIsTrainerWheelOpen(false)}
+        participants={participants}
+        onUpdateParticipants={(newParticipants) => setRawParticipants(newParticipants)}
+        draftOrder={draftOrder}
+        onUpdateDraftOrder={setDraftOrder}
+        claimedStarters={claimedStarters}
+        onSelectTrainerForStarterDraw={(trainer) => {
+          setSelectedTrainer(trainer);
+          setTimeout(() => {
+            handleDrawStarter(trainer);
+          }, 300);
+        }}
+      />
     </div>
   );
 }
