@@ -1,5 +1,33 @@
 import { cn } from '../../utils/cn';
 
+export const TYPE_TRANSLATIONS: Record<string, string> = {
+  normal: 'Normal',
+  fire: 'Fogo',
+  water: 'Água',
+  grass: 'Planta',
+  electric: 'Elétrico',
+  ice: 'Gelo',
+  fighting: 'Lutador',
+  poison: 'Veneno',
+  ground: 'Terrestre',
+  flying: 'Voador',
+  psychic: 'Psíquico',
+  bug: 'Inseto',
+  rock: 'Pedra',
+  ghost: 'Fantasma',
+  dragon: 'Dragão',
+  dark: 'Sombrio',
+  steel: 'Aço',
+  fairy: 'Fada',
+  stellar: 'Estelar',
+};
+
+export function formatPokemonType(type?: string | null): string {
+  if (!type) return '';
+  const lower = type.toLowerCase().trim();
+  return TYPE_TRANSLATIONS[lower] || type.charAt(0).toUpperCase() + type.slice(1);
+}
+
 const typeColors: Record<string, string> = {
   normal: 'bg-stone-400 text-stone-900',
   fire: 'bg-orange-500 text-white',
@@ -19,18 +47,20 @@ const typeColors: Record<string, string> = {
   dark: 'bg-slate-700 text-white',
   steel: 'bg-slate-400 text-slate-900',
   fairy: 'bg-pink-300 text-pink-900',
+  stellar: 'bg-gradient-to-r from-teal-400 to-indigo-400 text-white',
 };
 
 export function PokemonTypeBadge({ type, className }: { type: string; className?: string }) {
+  const cleanType = (type || '').toLowerCase().trim();
   return (
     <span
       className={cn(
-        'px-2 py-0.5 rounded-full text-xs font-semibold capitalize',
-        typeColors[type] || 'bg-gray-500 text-white',
+        'px-2 py-0.5 rounded-full text-xs font-semibold',
+        typeColors[cleanType] || 'bg-gray-500 text-white',
         className
       )}
     >
-      {type}
+      {formatPokemonType(type)}
     </span>
   );
 }

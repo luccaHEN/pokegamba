@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Ruler, Weight, Shield, Sword, Heart, Zap, ArrowUp, Sparkles, ShieldAlert, ZapOff } from 'lucide-react';
+import { 
+  ArrowLeft, Ruler, Weight, Shield, Sword, Heart, Zap, ArrowUp, Sparkles, 
+  ShieldAlert, ZapOff, BarChart3, Compass, Swords, Trophy, GitFork, ChevronUp 
+} from 'lucide-react';
 import { pokeApi } from '../services/pokeapi';
 import type { Pokemon, PokemonSpecies } from '../types/pokemon';
 import { PokemonTypeBadge } from '../components/pokemon/PokemonTypeBadge';
@@ -10,8 +13,11 @@ import { SmogonBuilds } from '../components/pokemon/SmogonBuilds';
 import { PokemonAbilities } from '../components/pokemon/PokemonAbilities';
 import { PokemonLearnset } from '../components/pokemon/PokemonLearnset';
 import { CobblemonSpawns } from '../components/pokemon/CobblemonSpawns';
+import { PokemonDetailTabs, PokemonDetailSidebar } from '../components/pokemon/PokemonDetailTabs';
+import type { DetailTabItem } from '../components/pokemon/PokemonDetailTabs';
 import { REGIONAL_OBTAIN_GUIDE } from '../data/regionalForms';
 import { COBBLEMON_NATURES } from '../data/natures';
+import raticateImg from '../assets/raticate.png';
 
 export default function PokemonDetails() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +38,80 @@ export default function PokemonDetails() {
   
   const [isShiny, setIsShiny] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Sticky Tab Navigation State
+  const [activeTab, setActiveTab] = useState<string>('section-stats');
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const isManualScrolling = useRef<boolean>(false);
+  const scrollTimeoutRef = useRef<number | null>(null);
+
+  const tabs = useMemo<DetailTabItem[]>(() => {
+    const list: DetailTabItem[] = [
+      { id: 'section-stats', label: 'Stats & Combate', icon: BarChart3 },
+      { id: 'section-spawns', label: 'Spawns Cobblemon', icon: Compass },
+      { id: 'section-abilities', label: 'Habilidades', icon: Sparkles },
+      { id: 'section-moves', label: 'Ataques', icon: Swords },
+      { id: 'section-smogon', label: 'Builds Smogon', icon: Trophy },
+    ];
+    if (evolutionChain.length > 1) {
+      list.push({ id: 'section-evolution', label: 'Evoluções', icon: GitFork });
+    }
+    return list;
+  }, [evolutionChain.length]);
+
+  const handleSelectTab = (tabId: string) => {
+    setActiveTab(tabId);
+    isManualScrolling.current = true;
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+
+    const element = document.getElementById(tabId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    scrollTimeoutRef.current = window.setTimeout(() => {
+      isManualScrolling.current = false;
+    }, 800);
+  };
+
+  const handleScrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setActiveTab('section-stats');
+  };
+
+  // ScrollSpy listener to sync activeTab with visible section
+  useEffect(() => {
+    const sectionIds = tabs.map(t => t.id);
+
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      setShowBackToTop(scrollY > 400);
+
+      if (isManualScrolling.current) return;
+
+      const threshold = 220; // Distance from top below Navbar
+      let current = sectionIds[0];
+
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= threshold) {
+            current = id;
+          }
+        }
+      }
+
+      setActiveTab(current);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    };
+  }, [tabs]);
 
   const calculateTypeMatchups = async (p: Pokemon) => {
     try {
@@ -187,19 +267,24 @@ export default function PokemonDetails() {
     'speed': 'bg-yellow-500'
   };
 
-  const currentSprite = isShiny 
+  const isRaticate = pokemon.id === 20 || pokemon.name === 'raticate' || pokemon.name === 'raticate-alola';
+
+  const currentSprite = isRaticate
+    ? raticateImg
+    : isShiny 
     ? (pokemon.sprites.other['official-artwork'].front_shiny || pokemon.sprites.front_shiny)
     : (pokemon.sprites.other['official-artwork'].front_default || pokemon.sprites.front_default);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-      <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4 text-cobble-300 hover:text-white">
+    <div className="relative max-w-4xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+      <Button variant="ghost" onClick={() => navigate(-1)} className="mb-2 text-cobble-300 hover:text-white">
         <ArrowLeft className="w-5 h-5 mr-2" /> Voltar
       </Button>
 
-      <div className="bg-cobble-800 rounded-[2rem] border-2 border-cobble-700 overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+      {/* Giant Main Pokémon Card - 100% Centered */}
+      <div className="w-full bg-cobble-800 rounded-[2rem] border-2 border-cobble-700 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
         {/* Image Header with Shiny Toggle */}
-        <div className="relative h-72 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cobble-700 via-cobble-800 to-cobble-900 flex items-center justify-center">
+        <div className="relative h-72 rounded-t-[2rem] overflow-hidden bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cobble-700 via-cobble-800 to-cobble-900 flex items-center justify-center">
           <span className="absolute top-6 left-6 text-6xl font-black text-white/5 tracking-tighter">
             #{String(pokemon.id).padStart(4, '0')}
           </span>
@@ -302,7 +387,14 @@ export default function PokemonDetails() {
             "{description}"
           </p>
 
-          <div className="grid md:grid-cols-2 gap-10">
+          {/* Sticky Tab Navigation */}
+          <PokemonDetailTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onSelectTab={handleSelectTab}
+          />
+
+          <div id="section-stats" className="scroll-mt-20 grid md:grid-cols-2 gap-10">
             {/* Stats */}
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
@@ -440,28 +532,28 @@ export default function PokemonDetails() {
           </div>
 
           {/* Cobblemon Minecraft Spawns Section */}
-          <div className="pt-8 border-t border-cobble-700">
+          <div id="section-spawns" className="scroll-mt-20 pt-8 border-t border-cobble-700">
             <CobblemonSpawns pokemonId={pokemon.id} pokemonName={pokemon.name} />
           </div>
 
           {/* Natural Abilities Section */}
-          <div className="pt-8 border-t border-cobble-700">
+          <div id="section-abilities" className="scroll-mt-20 pt-8 border-t border-cobble-700">
             <PokemonAbilities abilities={pokemon.abilities} />
           </div>
 
           {/* Learnset / Moves Section */}
-          <div className="pt-8 border-t border-cobble-700">
+          <div id="section-moves" className="scroll-mt-20 pt-8 border-t border-cobble-700">
             <PokemonLearnset moves={pokemon.moves} />
           </div>
 
           {/* Smogon Competitive Builds */}
-          <div className="pt-8 border-t border-cobble-700">
+          <div id="section-smogon" className="scroll-mt-20 pt-8 border-t border-cobble-700">
             <SmogonBuilds pokemonName={pokemon.name} />
           </div>
 
           {/* Evolution Chain */}
           {evolutionChain.length > 1 && (
-            <div className="pt-8 border-t border-cobble-700">
+            <div id="section-evolution" className="scroll-mt-20 pt-8 border-t border-cobble-700">
               <h3 className="text-2xl font-black mb-8 text-center text-white">Linha Evolutiva</h3>
               <div className="flex flex-wrap justify-center items-center gap-4 md:gap-8 bg-cobble-900/50 p-8 rounded-3xl border border-cobble-700/50 shadow-inner">
                 {evolutionChain.map((evo, idx) => (
@@ -474,7 +566,11 @@ export default function PokemonDetails() {
                           : "bg-cobble-800 border-cobble-600 group-hover:border-blue-400 group-hover:scale-105"
                       )}>
                         <img 
-                          src={evo.sprites.other['official-artwork'].front_default || evo.sprites.front_default} 
+                          src={
+                            (evo.id === 20 || evo.name === 'raticate' || evo.name === 'raticate-alola')
+                              ? raticateImg
+                              : (evo.sprites.other['official-artwork'].front_default || evo.sprites.front_default)
+                          } 
                           alt={evo.name}
                           className="w-full h-full object-contain drop-shadow-md"
                         />
@@ -496,6 +592,37 @@ export default function PokemonDetails() {
 
         </div>
       </div>
+
+      {/* Sticky Desktop Rail - Positioned beside the centered card, descends as user scrolls */}
+      <div className="hidden xl:block absolute left-full ml-6 top-16 bottom-0 w-60 xl:w-64 pointer-events-none">
+        <div className="sticky top-24 pointer-events-auto">
+          <PokemonDetailSidebar
+            tabs={tabs}
+            activeTab={activeTab}
+            onSelectTab={handleSelectTab}
+            pokemonName={pokemon.name}
+            pokemonId={pokemon.id}
+            spriteUrl={isRaticate ? raticateImg : (pokemon.sprites.front_default || currentSprite)}
+            onScrollToTop={handleScrollToTop}
+          />
+        </div>
+      </div>
+
+      {/* Floating Back to Top Button for mobile/compact viewports */}
+      <button
+        type="button"
+        onClick={handleScrollToTop}
+        className={cn(
+          "xl:hidden fixed bottom-6 right-6 z-40 p-3 rounded-full shadow-2xl transition-all duration-300 cursor-pointer",
+          "bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 font-black",
+          "border-2 border-yellow-300 hover:scale-110 active:scale-95 hover:shadow-yellow-500/30",
+          showBackToTop ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"
+        )}
+        title="Voltar ao topo"
+        aria-label="Voltar ao topo da página"
+      >
+        <ChevronUp className="w-6 h-6 stroke-[3]" />
+      </button>
     </div>
   );
 }

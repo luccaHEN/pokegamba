@@ -298,15 +298,20 @@ export function CobblemonSpawns({ pokemonId, pokemonName }: CobblemonSpawnsProps
                   key={biome.raw}
                   className="bg-black/40 border border-cobble-700/80 hover:border-emerald-500/60 p-2.5 rounded-xl transition-all flex items-start gap-2.5 group"
                 >
-                  <span className="text-2xl select-none group-hover:scale-110 transition-transform shrink-0">
+                  <span className="text-2xl select-none group-hover:scale-110 transition-transform shrink-0 pt-0.5">
                     {biome.icon}
                   </span>
-                  <div className="min-w-0">
-                    <span className="font-black text-xs text-white block truncate">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <code className="text-[11px] font-mono font-bold text-yellow-300 bg-yellow-500/10 border border-yellow-500/30 px-1.5 py-0.5 rounded block truncate max-w-full" title={biome.raw}>
+                        {biome.raw}
+                      </code>
+                    </div>
+                    <span className="font-semibold text-xs text-white block truncate">
                       {biome.label}
                     </span>
                     {biome.description && (
-                      <span className="text-[10px] text-cobble-400 block line-clamp-1">
+                      <span className="text-[10px] text-cobble-400 block line-clamp-1 mt-0.5">
                         {biome.description}
                       </span>
                     )}

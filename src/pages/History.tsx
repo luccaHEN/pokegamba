@@ -7,6 +7,7 @@ import { Trash2, Dices, Calendar, Share2, Check, Users, Image as ImageIcon, Refr
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatLotteryForDiscord, copyToClipboard } from '../utils/discord';
 import { generateLotteryCardImage, copyImageBlobToClipboard, downloadImageBlob } from '../utils/cardGenerator';
+import raticateImg from '../assets/raticate.png';
 
 export default function History() {
   const [history, setHistory] = useLocalStorage<LotteryHistorySession[]>('cobblemon-history', []);
@@ -217,7 +218,11 @@ export default function History() {
                           </span>
                         )}
                         <img 
-                          src={pokemon.sprites.front_default || pokemon.sprites.other?.['official-artwork']?.front_default} 
+                          src={
+                            (pokemon.id === 20 || pokemon.name === 'raticate' || pokemon.name === 'raticate-alola')
+                              ? raticateImg
+                              : (pokemon.sprites.front_default || pokemon.sprites.other?.['official-artwork']?.front_default)
+                          } 
                           alt={pokemon.name}
                           className={`w-16 h-16 object-contain group-hover:scale-110 transition-transform drop-shadow-md ${participantName ? 'mt-4' : ''}`}
                         />

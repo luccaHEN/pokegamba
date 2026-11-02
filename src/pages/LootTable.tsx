@@ -4,6 +4,7 @@ import { Search, Package, Sparkles, Filter, ChevronLeft, ChevronRight, Layers, A
 import { cobblemonService } from '../services/cobblemon';
 import type { CobblemonPokemonDrops, CobblemonItemSource } from '../services/cobblemon';
 import { formatItemName } from '../utils/itemFormatter';
+import { formatPokemonType } from '../components/pokemon/PokemonTypeBadge';
 
 const TYPE_COLORS: Record<string, string> = {
   normal: 'bg-zinc-600/40 text-zinc-300 border-zinc-500/50',
@@ -369,7 +370,7 @@ export default function LootTable() {
                               TYPE_COLORS[pokemon.primaryType] || 'bg-cobble-800 text-cobble-300 border-cobble-700'
                             }`}
                           >
-                            {pokemon.primaryType}
+                            {formatPokemonType(pokemon.primaryType)}
                           </span>
                         )}
                       </div>

@@ -1,4 +1,5 @@
 import type { Pokemon } from '../types/pokemon';
+import { formatPokemonType } from '../components/pokemon/PokemonTypeBadge';
 
 const TYPE_EMOJIS: Record<string, string> = {
   normal: '⚪',
@@ -55,7 +56,7 @@ export function formatLotteryForDiscord(
       pokeList.forEach((pokemon) => {
         const primaryType = pokemon.types[0]?.type.name || 'normal';
         const emoji = TYPE_EMOJIS[primaryType] || '⭐';
-        const typeNames = pokemon.types.map((t) => t.type.name.toUpperCase()).join(' / ');
+        const typeNames = pokemon.types.map((t) => formatPokemonType(t.type.name).toUpperCase()).join(' / ');
         const idFormatted = `#${String(pokemon.id).padStart(4, '0')}`;
         const capitalizedName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
 
@@ -69,7 +70,7 @@ export function formatLotteryForDiscord(
       unassigned.forEach((pokemon) => {
         const primaryType = pokemon.types[0]?.type.name || 'normal';
         const emoji = TYPE_EMOJIS[primaryType] || '⭐';
-        const typeNames = pokemon.types.map((t) => t.type.name.toUpperCase()).join(' / ');
+        const typeNames = pokemon.types.map((t) => formatPokemonType(t.type.name).toUpperCase()).join(' / ');
         const idFormatted = `#${String(pokemon.id).padStart(4, '0')}`;
         const capitalizedName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
 
@@ -83,7 +84,7 @@ export function formatLotteryForDiscord(
     pokemons.forEach((pokemon, idx) => {
       const primaryType = pokemon.types[0]?.type.name || 'normal';
       const emoji = TYPE_EMOJIS[primaryType] || '⭐';
-      const typeNames = pokemon.types.map((t) => t.type.name.toUpperCase()).join(' / ');
+      const typeNames = pokemon.types.map((t) => formatPokemonType(t.type.name).toUpperCase()).join(' / ');
       const idFormatted = `#${String(pokemon.id).padStart(4, '0')}`;
       const capitalizedName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
 

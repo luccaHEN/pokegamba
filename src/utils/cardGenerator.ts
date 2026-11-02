@@ -1,4 +1,6 @@
 import type { Pokemon } from '../types/pokemon';
+import { formatPokemonType } from '../components/pokemon/PokemonTypeBadge';
+import raticateImg from '../assets/raticate.png';
 
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   normal: { bg: '#A8A878', text: '#FFFFFF' },
@@ -104,10 +106,10 @@ export async function generateLotteryCardImage(
   // Load all images in parallel
   const images = await Promise.all(
     pokemons.map((p) => {
-      const src =
-        p.sprites.other?.['official-artwork']?.front_default ||
-        p.sprites.front_default ||
-        '';
+      const isRaticate = p.id === 20 || p.name === 'raticate' || p.name === 'raticate-alola';
+      const src = isRaticate
+        ? raticateImg
+        : (p.sprites.other?.['official-artwork']?.front_default || p.sprites.front_default || '');
       return loadImage(src);
     })
   );
@@ -197,7 +199,7 @@ export async function generateLotteryCardImage(
       ctx.fillStyle = tInfo.text;
       ctx.font = '800 10px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(t.type.name.toUpperCase(), badgeStartX + badgeW / 2, badgeY + 15);
+      ctx.fillText(formatPokemonType(t.type.name).toUpperCase(), badgeStartX + badgeW / 2, badgeY + 15);
 
       badgeStartX += badgeW + gap;
     });

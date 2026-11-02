@@ -5,6 +5,7 @@ import type { SmogonBuild } from '../../services/smogon';
 import { Button } from '../ui/Button';
 import { copyToClipboard } from '../../utils/discord';
 import { cn } from '../../utils/cn';
+import { formatPokemonType } from './PokemonTypeBadge';
 
 const NATURE_EFFECTS: Record<string, string> = {
   Adamant: '+Atk, -SpA',
@@ -268,7 +269,7 @@ export function SmogonBuilds({ pokemonName }: { pokemonName: string }) {
                     <Sparkles className="w-3 h-3 text-purple-400" /> Tera Type:
                   </span>
                   <span className="font-bold text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/30">
-                    {activeBuild.teraType}
+                    {formatPokemonType(activeBuild.teraType)}
                   </span>
                 </div>
               )}

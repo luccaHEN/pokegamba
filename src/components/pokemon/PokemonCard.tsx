@@ -4,6 +4,7 @@ import type { Pokemon } from '../../types/pokemon';
 import { PokemonTypeBadge } from './PokemonTypeBadge';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { cn } from '../../utils/cn';
+import raticateImg from '../../assets/raticate.png';
 
 export function PokemonCard({ 
   pokemon, 
@@ -87,7 +88,11 @@ export function PokemonCard({
       <div className={cn("flex items-center justify-center relative", compact ? "w-20 h-20 sm:w-24 sm:h-24 mt-2 mb-1" : "w-32 h-32 mt-4 mb-2")}>
         {isShadow && <span className={cn("absolute font-black text-yellow-400 z-20 animate-pulse drop-shadow-md", compact ? "text-3xl" : "text-5xl")}>?</span>}
         <img
-          src={pokemon.sprites.other['official-artwork'].front_default || pokemon.sprites.front_default}
+          src={
+            pokemon.id === 20 || pokemon.name === 'raticate' || pokemon.name === 'raticate-alola'
+              ? raticateImg
+              : (pokemon.sprites.other?.['official-artwork']?.front_default || pokemon.sprites.front_default)
+          }
           alt={isShadow ? '???' : pokemon.name}
           className={cn(
             "max-w-full max-h-full object-contain transition-all duration-500",

@@ -16,7 +16,7 @@ import { generateLotteryCardImage, copyImageBlobToClipboard, downloadImageBlob }
 
 import { Gachapon } from '../components/lottery/Gachapon';
 import { CardReveal } from '../components/pokemon/CardReveal';
-import { PokemonTypeBadge } from '../components/pokemon/PokemonTypeBadge';
+import { PokemonTypeBadge, formatPokemonType } from '../components/pokemon/PokemonTypeBadge';
 import { StartersDraftBoard } from '../components/lottery/StartersDraftBoard';
 import { StartersRoulette } from '../components/lottery/StartersRoulette';
 import { TrainerWheelModal } from '../components/lottery/TrainerWheelModal';
@@ -24,6 +24,7 @@ import { STARTER_POKEMON_DEFS, formatStartersDraftForDiscord } from '../utils/st
 import type { StarterPokemonDef } from '../utils/starters';
 import { pokeApi } from '../services/pokeapi';
 import { playStarterSound, stopStarterSound, isStarterVoiceMuted, setStarterVoiceMuted } from '../utils/audio';
+import raticateImg from '../assets/raticate.png';
 
 const TYPES = ['all', 'normal', 'fire', 'water', 'grass', 'electric', 'ice', 'fighting', 'poison', 'ground', 'flying', 'psychic', 'bug', 'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy'];
 const GENS = [
@@ -876,7 +877,7 @@ export default function Lottery() {
                     >
                       {TYPES.map(t => (
                         <option key={t} value={t} disabled={t !== 'all' && filters.type2 === t}>
-                          {t === 'all' ? 'Qualquer' : t}
+                          {t === 'all' ? 'Qualquer' : formatPokemonType(t)}
                         </option>
                       ))}
                     </select>
@@ -894,7 +895,7 @@ export default function Lottery() {
                       <option value="all">Qualquer</option>
                       <option value="none" className="text-red-400 font-bold">Nenhum</option>
                       {TYPES.filter(t => t !== 'all').map(t => (
-                        <option key={t} value={t} disabled={filters.type1 === t}>{t}</option>
+                        <option key={t} value={t} disabled={filters.type1 === t}>{formatPokemonType(t)}</option>
                       ))}
                     </select>
                   </div>
@@ -1107,7 +1108,7 @@ export default function Lottery() {
                       disabled={isDrawing}
                       className="w-full !bg-yellow-500 hover:!bg-yellow-400 text-cobble-950 font-black text-sm py-3 border-2 border-yellow-600"
                     >
-                      <Zap className="w-4 h-4 mr-2" /> Sortear Pokémon deste Tipo ({drawnType.toUpperCase()})
+                      <Zap className="w-4 h-4 mr-2" /> Sortear Pokémon deste Tipo ({formatPokemonType(drawnType).toUpperCase()})
                     </Button>
                   )}
                 </div>
@@ -1448,7 +1449,7 @@ export default function Lottery() {
                        {h.pokemons.map((p, idx) => (
                           <div key={`${p.id}-${idx}`} className="relative">
                             <img 
-                              src={p.sprites.front_default} 
+                              src={(p.id === 20 || p.name === 'raticate' || p.name === 'raticate-alola') ? raticateImg : p.sprites.front_default} 
                               className="w-10 h-10 bg-cobble-800 border-2 border-cobble-700 object-contain p-0.5 group-hover:border-yellow-500/70 transition-colors" 
                               alt={p.name} 
                             />

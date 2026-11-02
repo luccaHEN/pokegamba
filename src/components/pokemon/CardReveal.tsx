@@ -93,6 +93,8 @@ export function CardReveal({
           </div>
         ) : null}
 
+        
+
         <div className="flex-1 w-full">
           <PokemonCard pokemon={pokemon} compact={compact} />
         </div>
