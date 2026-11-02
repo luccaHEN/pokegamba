@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../components/ui/Button';
-import { drawPokemon } from '../utils/lottery';
+import { drawPokemon, getEvolutionFamilyIds } from '../utils/lottery';
 import type { LotteryFilters } from '../utils/lottery';
 import type { Pokemon, LotteryHistorySession } from '../types/pokemon';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -123,7 +123,8 @@ export default function Lottery() {
     allowMythical: true,
     rarity: 'all',
     evolution: 'all',
-    uniqueTypes: true
+    uniqueTypes: true,
+    uniqueEvolutions: true
   });
 
   // Tab 2: Quick Random Team State
@@ -131,6 +132,7 @@ export default function Lottery() {
   const [quickLegendaries, setQuickLegendaries] = useState(false);
   const [quickEvolution, setQuickEvolution] = useState<'all' | '1' | '2' | '3'>('all');
   const [quickUniqueTypes, setQuickUniqueTypes] = useState(true);
+  const [quickUniqueEvolutions, setQuickUniqueEvolutions] = useState(true);
 
   // Tab 3: Type Roulette State
   const [drawnType, setDrawnType] = useState<string | null>(null);
@@ -142,6 +144,7 @@ export default function Lottery() {
   const [drawingQueue, setDrawingQueue] = useState<Pokemon[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [lastDrawConfig, setLastDrawConfig] = useState<{ qty: number, filters: LotteryFilters } | null>(null);
+  const [rerollingIndex, setRerollingIndex] = useState<number | null>(null);
 
   // ==================== HANDLERS: PARTICIPANTS ====================
   const handleAddParticipant = () => {
@@ -180,7 +183,8 @@ export default function Lottery() {
       allowMythical: true,
       rarity: 'all',
       evolution: 'all',
-      uniqueTypes: true
+      uniqueTypes: true,
+      uniqueEvolutions: true
     });
   };
 
@@ -247,6 +251,8 @@ export default function Lottery() {
       const drawnPokemon: Pokemon[] = [];
       const drawnIds: number[] = [];
       const drawnTypes: string[] = [];
+      const drawnEvolutionChainUrls: string[] = [];
+      const isUniqueEvolutions = activeFilters.uniqueEvolutions !== false;
       
       const allowLegendary = activeFilters.allowLegendary ?? true;
       const allowMythical = activeFilters.allowMythical ?? true;
@@ -254,9 +260,34 @@ export default function Lottery() {
       for (let i = 0; i < activeQty; i++) {
         try {
           const excludeTypes = activeFilters.uniqueTypes ? drawnTypes : [];
-          const p = await drawPokemon(activeFilters, allowLegendary, allowMythical, drawnIds, excludeTypes);
+          const p = await drawPokemon(
+            activeFilters, 
+            allowLegendary, 
+            allowMythical, 
+            drawnIds, 
+            excludeTypes,
+            drawnEvolutionChainUrls
+          );
           drawnPokemon.push(p);
           drawnIds.push(p.id);
+
+          if (isUniqueEvolutions) {
+            try {
+              const familyIds = await getEvolutionFamilyIds(p.id);
+              familyIds.forEach(id => {
+                if (!drawnIds.includes(id)) {
+                  drawnIds.push(id);
+                }
+              });
+              const species = await pokeApi.getPokemonSpecies(p.id);
+              if (species.evolution_chain?.url && !drawnEvolutionChainUrls.includes(species.evolution_chain.url)) {
+                drawnEvolutionChainUrls.push(species.evolution_chain.url);
+              }
+            } catch (err) {
+              console.warn("Não foi possível registrar cadeia evolutiva para exclusão:", err);
+            }
+          }
+
           p.types.forEach(t => {
             if (!drawnTypes.includes(t.type.name)) {
               drawnTypes.push(t.type.name);
@@ -283,7 +314,8 @@ export default function Lottery() {
         activeFilters.generation ? `Gen: ${activeFilters.generation}` : '',
         activeFilters.rarity && activeFilters.rarity !== 'all' ? `Raridade: ${activeFilters.rarity}` : '',
         activeFilters.evolution && activeFilters.evolution !== 'all' ? `Evolução: ${activeFilters.evolution}` : '',
-        activeFilters.uniqueTypes ? 'Sem tipos repetidos' : ''
+        activeFilters.uniqueTypes ? 'Sem tipos repetidos' : '',
+        isUniqueEvolutions ? 'Sem evoluções repetidas' : ''
       ].filter(Boolean);
 
       setCurrentSessionFilters(sessionFilters);
@@ -318,7 +350,8 @@ export default function Lottery() {
       evolution: quickEvolution,
       allowLegendary: quickLegendaries,
       allowMythical: quickLegendaries,
-      uniqueTypes: quickUniqueTypes
+      uniqueTypes: quickUniqueTypes,
+      uniqueEvolutions: quickUniqueEvolutions
     };
 
     handleDraw(quickQty, quickFilters);
@@ -335,7 +368,8 @@ export default function Lottery() {
       evolution: 'all',
       allowLegendary: true,
       allowMythical: true,
-      uniqueTypes: false
+      uniqueTypes: false,
+      uniqueEvolutions: true
     };
 
     handleDraw(quantity, typeFilters);
@@ -566,6 +600,128 @@ export default function Lottery() {
     }
   };
 
+  // ==================== HANDLER: SINGLE POKEMON RE-ROLL ====================
+  const handleSingleReroll = async (index: number) => {
+    if (rerollingIndex !== null || isDrawing || isSpinningStarter) return;
+    const targetPokemon = results[index];
+    if (!targetPokemon) return;
+
+    setRerollingIndex(index);
+    setErrorMsg(null);
+
+    try {
+      if (lotteryTab === 'starters') {
+        const otherClaimedIds = Object.keys(claimedStarters)
+          .map(Number)
+          .filter(id => id !== targetPokemon.id);
+        const availableDefs = STARTER_POKEMON_DEFS.filter(
+          s => !otherClaimedIds.includes(s.id) && s.id !== targetPokemon.id
+        );
+
+        if (availableDefs.length === 0) {
+          throw new Error("Não há outros Pokémon iniciais disponíveis para sortear!");
+        }
+
+        const newDef = availableDefs[Math.floor(Math.random() * availableDefs.length)];
+        const newPokemon = await pokeApi.getPokemon(newDef.id);
+
+        const currentOwner = currentSessionParticipants[index] || claimedStarters[targetPokemon.id] || 'Treinador';
+
+        setClaimedStarters(prev => {
+          const next = { ...prev };
+          delete next[targetPokemon.id];
+          next[newDef.id] = currentOwner;
+          return next;
+        });
+
+        playStarterSound(newDef.id);
+
+        const nextResults = [...results];
+        nextResults[index] = newPokemon;
+        setResults(nextResults);
+
+        setHistory(prev => {
+          if (prev.length === 0) return prev;
+          const [first, ...rest] = prev;
+          const updatedPokemons = [...first.pokemons];
+          if (updatedPokemons[index]?.id === targetPokemon.id) {
+            updatedPokemons[index] = newPokemon;
+            return [{ ...first, pokemons: updatedPokemons }, ...rest];
+          }
+          return prev;
+        });
+      } else {
+        const activeFilters = lastDrawConfig?.filters || filters;
+        const allowLegendary = activeFilters.allowLegendary ?? true;
+        const allowMythical = activeFilters.allowMythical ?? true;
+        const isUniqueEvolutions = activeFilters.uniqueEvolutions !== false;
+
+        const otherPokemons = results.filter((_, i) => i !== index);
+        const excludeIds: number[] = [targetPokemon.id, ...otherPokemons.map(p => p.id)];
+        const excludeTypes: string[] = [];
+        const excludeEvolutionChainUrls: string[] = [];
+
+        if (activeFilters.uniqueTypes) {
+          otherPokemons.forEach(p => {
+            p.types.forEach(t => {
+              if (!excludeTypes.includes(t.type.name)) {
+                excludeTypes.push(t.type.name);
+              }
+            });
+          });
+        }
+
+        if (isUniqueEvolutions) {
+          for (const p of otherPokemons) {
+            try {
+              const familyIds = await getEvolutionFamilyIds(p.id);
+              familyIds.forEach(id => {
+                if (!excludeIds.includes(id)) {
+                  excludeIds.push(id);
+                }
+              });
+              const species = await pokeApi.getPokemonSpecies(p.id);
+              if (species.evolution_chain?.url && !excludeEvolutionChainUrls.includes(species.evolution_chain.url)) {
+                excludeEvolutionChainUrls.push(species.evolution_chain.url);
+              }
+            } catch (err) {
+              console.warn("Erro ao buscar família evolutiva para exclusão:", err);
+            }
+          }
+        }
+
+        const newPokemon = await drawPokemon(
+          activeFilters,
+          allowLegendary,
+          allowMythical,
+          excludeIds,
+          excludeTypes,
+          excludeEvolutionChainUrls
+        );
+
+        const nextResults = [...results];
+        nextResults[index] = newPokemon;
+        setResults(nextResults);
+
+        setHistory(prev => {
+          if (prev.length === 0) return prev;
+          const [first, ...rest] = prev;
+          const updatedPokemons = [...first.pokemons];
+          if (updatedPokemons[index]?.id === targetPokemon.id) {
+            updatedPokemons[index] = newPokemon;
+            return [{ ...first, pokemons: updatedPokemons }, ...rest];
+          }
+          return prev;
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || "Erro ao resortear Pokémon. Tente novamente.");
+    } finally {
+      setRerollingIndex(null);
+    }
+  };
+
   // Discord Text Share Handler
   const handleCopyDiscord = async () => {
     const text = formatLotteryForDiscord(results, currentSessionParticipants, currentSessionFilters);
@@ -694,7 +850,7 @@ export default function Lottery() {
                 <span className="text-base">🎡</span>
                 <span className="truncate">Roleta de Ordem dos Treinadores</span>
               </div>
-              <span className="text-[10px] bg-yellow-500 text-cobble-950 px-2 py-0.5 rounded font-black shrink-0 shadow">
+              <span className="text-[10px] bg-yellow-500 text-slate-950 px-2 py-0.5 rounded font-black shrink-0 shadow">
                 GIRAR
               </span>
             </button>
@@ -736,7 +892,7 @@ export default function Lottery() {
               />
               <button
                 onClick={handleAddParticipant}
-                className="bg-yellow-500 hover:bg-yellow-400 text-cobble-950 px-2.5 py-1.5 font-black text-xs border-2 border-yellow-600 transition-colors shadow-md flex items-center justify-center active:scale-95 cursor-pointer"
+                className="bg-yellow-500 hover:bg-yellow-400 text-slate-950 px-2.5 py-1.5 font-black text-xs border-2 border-yellow-600 transition-colors shadow-md flex items-center justify-center active:scale-95 cursor-pointer"
                 title="Adicionar treinador"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -751,7 +907,7 @@ export default function Lottery() {
                     className={cn(
                       "inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold transition-all border cursor-pointer",
                       activeSelectedTrainer === 'all'
-                        ? "bg-yellow-500 text-cobble-950 border-yellow-400 font-black shadow-sm ring-1 ring-yellow-400"
+                        ? "bg-yellow-500 text-slate-950 border-yellow-400 font-black shadow-sm ring-1 ring-yellow-400"
                         : "bg-cobble-900 border-cobble-700 text-cobble-300 hover:text-white hover:border-cobble-500"
                     )}
                     title="Distribuir os Pokémon sorteados entre todos os treinadores"
@@ -971,6 +1127,25 @@ export default function Lottery() {
                   </div>
                 </div>
 
+                {/* Unique Evolutions Toggle */}
+                <div 
+                  onClick={() => updateFilter('uniqueEvolutions', filters.uniqueEvolutions === false ? true : false)}
+                  className="bg-black/30 p-2.5 border-2 border-cobble-700 flex items-center justify-between cursor-pointer hover:border-blue-500/70 transition-colors"
+                >
+                  <div>
+                    <h3 className="font-black text-xs text-blue-300 flex items-center tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 mr-1 text-blue-400" /> Sem Mesma Evolução
+                    </h3>
+                    <p className="text-[10px] text-cobble-400">Impede mesma família (ex: Wartortle e Squirtle)</p>
+                  </div>
+                  <div className={cn(
+                    "w-10 h-5 flex items-center p-0.5 border-2 transition-all",
+                    filters.uniqueEvolutions !== false ? "bg-blue-600 border-blue-400 justify-end" : "bg-cobble-900 border-cobble-700 justify-start"
+                  )}>
+                    <div className={cn("w-3 h-3 shadow-md", filters.uniqueEvolutions !== false ? "bg-white" : "bg-cobble-500")} />
+                  </div>
+                </div>
+
                 <Button onClick={resetFilters} variant="secondary" className="w-full text-xs py-2 mt-1" size="sm">
                   Limpar Filtros
                 </Button>
@@ -1059,6 +1234,25 @@ export default function Lottery() {
                     <div className={cn("w-3 h-3 shadow-md", quickUniqueTypes ? "bg-cobble-950" : "bg-cobble-500")} />
                   </div>
                 </div>
+
+                {/* Quick Unique Evolutions Toggle */}
+                <div 
+                  onClick={() => setQuickUniqueEvolutions(!quickUniqueEvolutions)}
+                  className="bg-black/30 p-2.5 border-2 border-cobble-700 flex items-center justify-between cursor-pointer hover:border-blue-500/70 transition-colors"
+                >
+                  <div>
+                    <h3 className="font-black text-xs text-blue-300 flex items-center tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 mr-1 text-blue-400" /> Sem Mesma Evolução
+                    </h3>
+                    <p className="text-[10px] text-cobble-400">Evita pokémons da mesma linha evolutiva juntos</p>
+                  </div>
+                  <div className={cn(
+                    "w-10 h-5 flex items-center p-0.5 border-2 transition-all",
+                    quickUniqueEvolutions ? "bg-blue-600 border-blue-400 justify-end" : "bg-cobble-900 border-cobble-700 justify-start"
+                  )}>
+                    <div className={cn("w-3 h-3 shadow-md", quickUniqueEvolutions ? "bg-white" : "bg-cobble-500")} />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1106,7 +1300,7 @@ export default function Lottery() {
                     <Button 
                       onClick={handleDrawFromRouletteType}
                       disabled={isDrawing}
-                      className="w-full !bg-yellow-500 hover:!bg-yellow-400 text-cobble-950 font-black text-sm py-3 border-2 border-yellow-600"
+                      className="w-full !bg-yellow-500 hover:!bg-yellow-400 !text-slate-950 font-black text-sm py-3 border-2 border-yellow-600"
                     >
                       <Zap className="w-4 h-4 mr-2" /> Sortear Pokémon deste Tipo ({formatPokemonType(drawnType).toUpperCase()})
                     </Button>
@@ -1135,7 +1329,7 @@ export default function Lottery() {
                       </span>
                     </div>
                   </div>
-                  <span className="bg-yellow-500 text-cobble-950 font-black text-[10px] px-2.5 py-1 rounded-lg shadow uppercase">
+                  <span className="bg-yellow-500 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-lg shadow uppercase">
                     {draftOrder.length > 0 ? 'Ver Ordem' : 'Girar Roleta'}
                   </span>
                 </button>
@@ -1352,7 +1546,7 @@ export default function Lottery() {
                 className={cn(
                   "px-2.5 py-1 rounded text-xs font-black transition-all flex items-center gap-1 cursor-pointer",
                   startersCenterView === 'board'
-                    ? "bg-yellow-500 text-cobble-950 shadow"
+                    ? "bg-yellow-500 text-slate-950 shadow"
                     : "text-cobble-300 hover:text-white"
                 )}
               >
@@ -1363,7 +1557,7 @@ export default function Lottery() {
                 className={cn(
                   "px-2.5 py-1 rounded text-xs font-black transition-all flex items-center gap-1 cursor-pointer",
                   startersCenterView === 'gachapon'
-                    ? "bg-yellow-500 text-cobble-950 shadow"
+                    ? "bg-yellow-500 text-slate-950 shadow"
                     : "text-cobble-300 hover:text-white"
                 )}
               >
@@ -1394,7 +1588,7 @@ export default function Lottery() {
                   ? "!bg-emerald-600 hover:!bg-emerald-500 !border-emerald-800 text-white"
                   : lotteryTab === 'type' && !drawnType 
                   ? "!bg-blue-600 hover:!bg-blue-500 !border-blue-800" 
-                  : "!bg-yellow-500 hover:!bg-yellow-400 text-cobble-950 !border-yellow-600"
+                  : "!bg-yellow-500 hover:!bg-yellow-400 !text-slate-950 !border-yellow-600"
               )}
             >
               {isDrawing || isDrawingType || isSpinningStarter ? (
@@ -1471,35 +1665,29 @@ export default function Lottery() {
       {/* ======================================================== */}
       <AnimatePresence>
         {isSpinningStarter && activeSpinWinnerDef && (
-          <div className="fixed inset-0 z-[110] overflow-y-auto bg-black/95 backdrop-blur-md p-3 sm:p-6 flex flex-col items-center justify-start custom-scrollbar">
-            {/* Top Close Bar */}
-            <div className="w-full max-w-5xl flex justify-end shrink-0 mb-1 z-20">
-              <button
-                onClick={handleCloseRoulette}
-                className="p-1.5 text-cobble-400 hover:text-white hover:bg-cobble-800 rounded-lg transition-colors cursor-pointer"
-                title="Fechar"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+          <div className="fixed inset-0 z-[110] bg-black/95 backdrop-blur-md p-2 sm:p-4 flex flex-col items-center justify-center overflow-hidden">
+            {/* Top Close Button (Absolute to save vertical height and avoid scrollbar) */}
+            <button
+              onClick={handleCloseRoulette}
+              className="absolute top-2 right-2 sm:top-4 sm:right-5 p-2 text-cobble-400 hover:text-white hover:bg-cobble-800 rounded-lg transition-colors cursor-pointer z-30"
+              title="Fechar"
+            >
+              <X className="w-5 h-5" />
+            </button>
 
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-5xl my-auto flex flex-col items-center pb-6"
+              className="w-full max-w-5xl my-auto flex flex-col items-center"
             >
               {/* Header Box */}
-              <div className="text-center mb-3 sm:mb-4 space-y-1.5">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 font-black text-xs uppercase tracking-wider shadow">
-                  <Sparkles className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-                  <span>27 Iniciais • Sem Repetição</span>
-                </div>
+              <div className="text-center mb-2.5 space-y-1.5">
 
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-wider drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                <h2 className="pt-2 text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-wider drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
                   {activeSpinFinished ? (
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-500 animate-pulse">
-                      🎉 TEMOS UM VENCEDOR! 🎉
+                       TEMOS UM VENCEDOR!
                     </span>
                   ) : (
                     <span className="text-transparent bg-clip-text bg-gradient-to-b from-white to-cobble-300">
@@ -1508,10 +1696,10 @@ export default function Lottery() {
                   )}
                 </h2>
 
-                <div className="text-sm sm:text-base font-bold text-yellow-400 flex items-center justify-center gap-2">
-                  <span className="text-cobble-300">Sorteando inicial para:</span>
-                  <span className="px-2.5 py-0.5 bg-yellow-500 text-cobble-950 font-black rounded-lg shadow-md flex items-center gap-1.5 text-xs sm:text-sm">
-                    <Crown className="w-3.5 h-3.5 text-cobble-950" />
+                <div className="inline-flex items-center justify-center gap-2 px-3.5 py-1 rounded-xl bg-cobble-900/90 border-2 border-yellow-500/60 shadow-lg backdrop-blur-sm">
+                  <span className="text-slate-200 text-xs sm:text-sm font-bold tracking-wide">Sorteando inicial para:</span>
+                  <span className="px-2.5 py-0.5 bg-yellow-400 text-slate-950 font-black rounded-md shadow flex items-center gap-1.5 text-xs sm:text-sm tracking-wide">
+                    <Crown className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
                     {activeSpinTrainer}
                   </span>
                 </div>
@@ -1541,7 +1729,7 @@ export default function Lottery() {
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-yellow-500/20 via-transparent to-transparent pointer-events-none" />
 
                     {/* Top Tag */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-500 text-cobble-950 font-black text-xs uppercase tracking-wider rounded-full mb-3 shadow">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-full mb-3 shadow">
                       <span>👑</span> INICIAL SORTEADO COM SUCESSO!
                     </div>
 
@@ -1768,6 +1956,9 @@ export default function Lottery() {
                               setClaimedStarters(prev => ({ ...prev, [p.id]: newOwner }));
                             }
                           }}
+                          onReroll={() => handleSingleReroll(idx)}
+                          isRerolling={rerollingIndex === idx}
+                          disabledReroll={rerollingIndex !== null && rerollingIndex !== idx}
                         />
                       </div>
                     );

@@ -9,7 +9,7 @@ export const TYPE_TRANSLATIONS: Record<string, string> = {
   ice: 'Gelo',
   fighting: 'Lutador',
   poison: 'Veneno',
-  ground: 'Terrestre',
+  ground: 'Terra',
   flying: 'Voador',
   psychic: 'Psíquico',
   bug: 'Inseto',

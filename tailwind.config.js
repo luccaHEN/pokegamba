@@ -9,6 +9,7 @@ export default {
     extend: {
       colors: {
         cobble: {
+          950: '#0b0e17',
           900: '#1a1f2e',
           800: '#232a3e',
           700: '#2d364f',

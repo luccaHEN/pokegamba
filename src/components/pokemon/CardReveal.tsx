@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { PokemonCard } from './PokemonCard';
 import type { Pokemon } from '../../types/pokemon';
 import { getCapsuleColors } from '../lottery/Gachapon';
@@ -12,6 +13,9 @@ interface CardRevealProps {
   participant?: string;
   availableParticipants?: string[];
   onSelectParticipant?: (newOwner: string) => void;
+  onReroll?: () => void;
+  isRerolling?: boolean;
+  disabledReroll?: boolean;
 }
 
 export function CardReveal({
@@ -20,7 +24,10 @@ export function CardReveal({
   compact = false,
   participant,
   availableParticipants = [],
-  onSelectParticipant
+  onSelectParticipant,
+  onReroll,
+  isRerolling = false,
+  disabledReroll = false,
 }: CardRevealProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -93,11 +100,40 @@ export function CardReveal({
           </div>
         ) : null}
 
-        
-
-        <div className="flex-1 w-full">
+        <div className="flex-1 w-full relative">
           <PokemonCard pokemon={pokemon} compact={compact} />
+          {isRerolling && (
+            <div className="absolute inset-0 bg-cobble-950/75 backdrop-blur-[2px] rounded-xl flex flex-col items-center justify-center gap-2 z-30 pointer-events-none border border-yellow-500/50">
+              <RefreshCw className="w-7 h-7 text-yellow-400 animate-spin drop-shadow-md" />
+              <span className="text-[11px] font-black text-yellow-300 uppercase tracking-widest drop-shadow">Resorteando...</span>
+            </div>
+          )}
         </div>
+
+        {onReroll && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onReroll();
+            }}
+            disabled={isRerolling || disabledReroll}
+            title={`Resortear apenas este Pokémon (${pokemon.name})`}
+            className={cn(
+              "w-full mt-2 flex items-center justify-center gap-1.5 font-bold transition-all shadow-md cursor-pointer border-2 select-none active:scale-95",
+              compact ? "py-1 px-2 text-[11px] rounded" : "py-1.5 px-3 text-xs rounded-lg",
+              isRerolling 
+                ? "bg-cobble-800 text-yellow-400 border-yellow-500/70 cursor-wait" 
+                : disabledReroll
+                  ? "bg-cobble-900/60 text-slate-500 border-cobble-800 cursor-not-allowed opacity-50"
+                  : "bg-cobble-900/95 hover:bg-cobble-800 text-slate-200 hover:text-yellow-300 border-cobble-700 hover:border-yellow-500 hover:shadow-yellow-500/10"
+            )}
+          >
+            <RefreshCw className={cn(compact ? "w-3 h-3" : "w-3.5 h-3.5", "text-yellow-400", isRerolling && "animate-spin")} />
+            <span>{isRerolling ? 'Sorteando...' : 'Resortear'}</span>
+          </button>
+        )}
       </motion.div>
     </div>
   );

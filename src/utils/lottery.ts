@@ -10,6 +10,7 @@ export interface LotteryFilters {
   rarity?: 'all' | 'normal' | 'legendary' | 'mythical';
   evolution?: 'all' | 'base' | 'evolved' | '1' | '2' | '3';
   uniqueTypes?: boolean;
+  uniqueEvolutions?: boolean;
 }
 
 export const LEGENDARY_IDS = [
@@ -22,12 +23,54 @@ export const MYTHICAL_IDS = [
   151, 251, 385, 386, 489, 490, 491, 492, 493, 494, 647, 648, 649, 719, 720, 721, 801, 802, 807, 808, 809, 893
 ];
 
+const familyCache = new Map<number, number[]>();
+
+export async function getEvolutionFamilyIds(pokemonId: number): Promise<number[]> {
+  if (familyCache.has(pokemonId)) {
+    return familyCache.get(pokemonId)!;
+  }
+  try {
+    const species = await pokeApi.getPokemonSpecies(pokemonId);
+    if (!species.evolution_chain?.url) {
+      familyCache.set(pokemonId, [pokemonId]);
+      return [pokemonId];
+    }
+    const chainUrl = species.evolution_chain.url;
+    const chainId = chainUrl.split('/').filter(Boolean).pop();
+    if (!chainId) {
+      familyCache.set(pokemonId, [pokemonId]);
+      return [pokemonId];
+    }
+    const chainData = await pokeApi.get<any>(`/evolution-chain/${chainId}`);
+    const ids: number[] = [];
+    const extract = (node: any) => {
+      if (node?.species?.url) {
+        const parts = node.species.url.split('/').filter(Boolean);
+        const id = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(id)) ids.push(id);
+      }
+      if (node?.evolves_to && Array.isArray(node.evolves_to)) {
+        node.evolves_to.forEach(extract);
+      }
+    };
+    extract(chainData.chain);
+    
+    // Cache for all members in that family
+    ids.forEach(id => familyCache.set(id, ids));
+    return ids.length > 0 ? ids : [pokemonId];
+  } catch (err) {
+    console.warn(`Could not get evolution family for #${pokemonId}:`, err);
+    return [pokemonId];
+  }
+}
+
 export async function drawPokemon(
   filters: LotteryFilters, 
   allowLegendary: boolean, 
   allowMythical: boolean,
   excludeIds: number[] = [],
-  excludeTypes: string[] = []
+  excludeTypes: string[] = [],
+  excludeEvolutionChainUrls: string[] = []
 ): Promise<Pokemon> {
   let possibleIds: number[] = [];
 
@@ -118,6 +161,14 @@ export async function drawPokemon(
       }
 
       const species = await pokeApi.getPokemonSpecies(chosenId);
+
+      // Evolution chain exclusion check
+      if (excludeEvolutionChainUrls.length > 0 && species.evolution_chain?.url) {
+        if (excludeEvolutionChainUrls.includes(species.evolution_chain.url)) {
+          possibleIds.splice(randomIndex, 1);
+          continue;
+        }
+      }
 
       // If we need to check legendary status from general allow rules (if rarity is 'all')
       if (filters.rarity === 'all' || !filters.rarity) {
