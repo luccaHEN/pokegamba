@@ -1,0 +1,216 @@
+export interface BiomeZone {
+  id: string;
+  name: string;
+  shortName: string;
+  subtitle: string;
+  icon: string;
+  color: string;
+  glowColor: string;
+  description: string;
+  climate: 'Temperado' | 'Quente & Árido' | 'Frio & Glacial' | 'Aquático' | 'Montanhoso' | 'Subterrâneo' | 'Outra Dimensão';
+  latitude: number; // -90 a 90
+  longitude: number; // -180 a 180
+  matchedTags: string[];
+  landmarks: string[];
+}
+
+export const BIOME_ZONES: BiomeZone[] = [
+  {
+    id: 'forests-plains',
+    name: 'Florestas & Campos Floridos',
+    shortName: 'Florestas',
+    subtitle: 'Florestas densas, pradarias e campos de flores',
+    icon: '🌲',
+    color: '#22c55e', // Emerald/Green
+    glowColor: 'rgba(34, 197, 94, 0.6)',
+    description: 'Campos abertos, bosques de carvalho e bétula e pradarias floridas repletas de Pokémon tipo Planta, Inseto e Normal.',
+    climate: 'Temperado',
+    latitude: 25,
+    longitude: -40,
+    matchedTags: [
+      '#cobblemon:is_forest',
+      '#cobblemon:is_plains',
+      '#cobblemon:is_grassland',
+      '#cobblemon:is_floral',
+      'minecraft:sunflower_plains',
+      '#cobblemon:is_shrubland',
+      '#cobblemon:is_temperate',
+    ],
+    landmarks: ['Árvores de Carvalho', 'Girassóis', 'Campos de Flores', 'Grama Alta'],
+  },
+  {
+    id: 'jungle-cherry',
+    name: 'Selvas Tropicais & Cerejeiras',
+    shortName: 'Cerejeiras & Selvas',
+    subtitle: 'Florestas de bambu, bosques de cerejeira e florestas tropicais',
+    icon: '🌸',
+    color: '#ec4899', // Pink
+    glowColor: 'rgba(236, 72, 153, 0.6)',
+    description: 'Áreas exuberantes e místicas com pétalas de cerejeira flutuando e densas selvas de bambu onde vivem espécies exóticas.',
+    climate: 'Temperado',
+    latitude: -10,
+    longitude: 35,
+    matchedTags: [
+      '#cobblemon:is_jungle',
+      '#cobblemon:is_bamboo',
+      '#cobblemon:is_cherry_blossom',
+      'minecraft:cherry_grove',
+      '#cobblemon:is_tropical_island',
+    ],
+    landmarks: ['Cerejeiras em Flor', 'Bambu Gigante', 'Cipós e Cacau', 'Melancias'],
+  },
+  {
+    id: 'arid-desert',
+    name: 'Terras Áridas & Desertos',
+    shortName: 'Desertos & Savanas',
+    subtitle: 'Desertos escaldantes, savanas e badlands avermelhadas',
+    icon: '🏜️',
+    color: '#eab308', // Amber/Yellow
+    glowColor: 'rgba(234, 179, 8, 0.6)',
+    description: 'Dunas secas, colinas de terracota e savanas douradas. Lar de Pokémon dos tipos Terra, Fogo e Pedra adaptados ao calor extremo.',
+    climate: 'Quente & Árido',
+    latitude: 15,
+    longitude: 130,
+    matchedTags: [
+      '#cobblemon:is_arid',
+      '#cobblemon:is_desert',
+      '#cobblemon:is_badlands',
+      '#cobblemon:is_savanna',
+      '#cobblemon:is_sandy',
+    ],
+    landmarks: ['Cactos', 'Pirâmides do Deserto', 'Terracota Colorida', 'Árvores de Acácia'],
+  },
+  {
+    id: 'glacial-peaks',
+    name: 'Região Glacial & Neve',
+    shortName: 'Geleiras & Neve',
+    subtitle: 'Tundras geladas, picos congelados e taigas nevadas',
+    icon: '❄️',
+    color: '#06b6d4', // Cyan
+    glowColor: 'rgba(6, 182, 212, 0.6)',
+    description: 'Mantos de neve espessa, icebergs e pinheiros boreais onde habitam Pokémon dos tipos Gelo e Aço resistentes a tempestades de neve.',
+    climate: 'Frio & Glacial',
+    latitude: 65,
+    longitude: 20,
+    matchedTags: [
+      '#cobblemon:is_freezing',
+      '#cobblemon:is_snowy',
+      '#cobblemon:is_snowy_forest',
+      '#cobblemon:is_snowy_taiga',
+      '#cobblemon:is_glacial',
+      '#cobblemon:is_tundra',
+      '#cobblemon:is_cold',
+      '#cobblemon:is_frozen_ocean',
+      'minecraft:snowy_beach',
+      'minecraft:frozen_river',
+    ],
+    landmarks: ['Gelo Azul Compacto', 'Iglus', 'Pinheiros Nevados', 'Neve Fofa'],
+  },
+  {
+    id: 'mountains-highlands',
+    name: 'Montanhas & Platôs Altos',
+    shortName: 'Montanhas & Platôs',
+    subtitle: 'Picos escarpados, chapadas rochosas e encostas',
+    icon: '⛰️',
+    color: '#a855f7', // Purple/Violet
+    glowColor: 'rgba(168, 85, 247, 0.6)',
+    description: 'Grandes elevações rochosas acima das nuvens, ideais para Pokémon do tipo Voador, Dragão e Pedra que dominam as alturas.',
+    climate: 'Montanhoso',
+    latitude: 35,
+    longitude: -140,
+    matchedTags: [
+      '#cobblemon:is_mountain',
+      '#cobblemon:is_peak',
+      '#cobblemon:is_highlands',
+      '#cobblemon:is_plateau',
+      '#cobblemon:is_hills',
+      '#cobblemon:is_sky',
+      '#cobblemon:is_taiga',
+    ],
+    landmarks: ['Picos Rochosos', 'Esmeraldas Nativas', 'Nuvens Baixas', 'Cascalho'],
+  },
+  {
+    id: 'oceans-coasts',
+    name: 'Grandes Mares & Litoral',
+    shortName: 'Mares & Litoral',
+    subtitle: 'Oceanos profundos, recifes de coral e praias ensolaradas',
+    icon: '🌊',
+    color: '#3b82f6', // Blue
+    glowColor: 'rgba(59, 130, 246, 0.6)',
+    description: 'Vastas extensões marítimas, abismos oceânicos e praias de areia branca. Abrigo de quase todos os Pokémon do tipo Água.',
+    climate: 'Aquático',
+    latitude: -35,
+    longitude: -110,
+    matchedTags: [
+      '#cobblemon:is_ocean',
+      '#cobblemon:is_deep_ocean',
+      '#cobblemon:is_warm_ocean',
+      '#cobblemon:is_lukewarm_ocean',
+      '#cobblemon:is_temperate_ocean',
+      '#cobblemon:is_cold_ocean',
+      '#cobblemon:is_beach',
+      '#cobblemon:is_coast',
+      '#cobblemon:is_island',
+      '#cobblemon:is_river',
+      '#cobblemon:is_freshwater',
+      '#cobblemon:is_swamp',
+    ],
+    landmarks: ['Recifes de Coral', 'Monumentos Oceânicos', 'Naufrágios', 'Areia e Algas'],
+  },
+  {
+    id: 'caves-underground',
+    name: 'Cavernas & Subterrâneo',
+    shortName: 'Cavernas & Sculk',
+    subtitle: 'Cavernas exuberantes, espeleotemas e Deep Dark',
+    icon: '💎',
+    color: '#10b981', // Teal/Emerald
+    glowColor: 'rgba(16, 185, 129, 0.6)',
+    description: 'Labirintos rochosos no fundo do mundo com musgo luminoso, azaleias, estalactites e o misterioso Sculk habitado por Pokémon Noturnos e Venenosos.',
+    climate: 'Subterrâneo',
+    latitude: -45,
+    longitude: 70,
+    matchedTags: [
+      '#cobblemon:is_caves',
+      '#cobblemon:is_lush',
+      'minecraft:lush_caves',
+      '#cobblemon:is_dripstone',
+      'minecraft:dripstone_caves',
+      '#cobblemon:is_deep_dark',
+      '#cobblemon:is_spooky',
+      '#cobblemon:has_block/mud',
+      '#cobblemon:is_mushroom',
+      'minecraft:mushroom_fields',
+    ],
+    landmarks: ['Azaleias e Musgo', 'Estalactites', 'Blocos de Sculk', 'Geodos de Ametista'],
+  },
+  {
+    id: 'nether-end',
+    name: 'Nether & The End',
+    shortName: 'Nether & The End',
+    subtitle: 'Dimensões extraplanares: fogo, lava e o vazio cósmico',
+    icon: '🔥',
+    color: '#ef4444', // Red
+    glowColor: 'rgba(239, 68, 68, 0.6)',
+    description: 'Fortalezas de netherrack banhadas por lava, florestas carmesim e as ilhas flutuantes do End onde vivem Pokémon lendários e fantasmagóricos.',
+    climate: 'Outra Dimensão',
+    latitude: -65,
+    longitude: -20,
+    matchedTags: [
+      '#cobblemon:is_nether',
+      '#minecraft:is_nether',
+      '#cobblemon:nether/is_basalt',
+      '#cobblemon:nether/is_crimson',
+      '#cobblemon:nether/is_warped',
+      '#cobblemon:nether/is_soul_sand',
+      '#cobblemon:nether/is_desert',
+      '#cobblemon:nether/is_wasteland',
+      '#cobblemon:nether/is_fungus',
+      '#cobblemon:nether/is_toxic',
+      '#cobblemon:nether/is_quartz',
+      '#cobblemon:is_end',
+      '#minecraft:is_end',
+      '#cobblemon:is_volcanic',
+    ],
+    landmarks: ['Mar de Lava', 'Fortalezas do Nether', 'Fungos Carmesim', 'Cidades do End'],
+  },
+];

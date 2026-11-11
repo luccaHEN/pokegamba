@@ -1,3 +1,19 @@
+export interface BiomePokemonEntry {
+  id: number;
+  name: string;
+  rarity: 'common' | 'uncommon' | 'rare' | 'ultra-rare';
+  levelRange: string;
+  positions: string[];
+  timeRanges?: string[];
+  conditions?: {
+    requiresRain?: boolean;
+    requiresThunder?: boolean;
+    structures?: string[];
+    nearbyBlocks?: string[];
+  };
+  matchedBiomes: string[];
+}
+
 export interface CobblemonBiomeInfo {
   raw: string;
   label: string;
@@ -329,6 +345,51 @@ export const cobblemonService = {
     } catch {
       return {};
     }
+  },
+
+  async getAllSpawns(): Promise<Record<string, any>> {
+    const dataset = await loadDataset();
+    return dataset || {};
+  },
+
+  async getPokemonsForBiomeZone(matchedTags: string[]): Promise<BiomePokemonEntry[]> {
+    const dataset = await loadDataset();
+    if (!dataset) return [];
+
+    const results: BiomePokemonEntry[] = [];
+    const tagsSet = new Set(matchedTags);
+
+    for (const key of Object.keys(dataset)) {
+      const entry = dataset[key];
+      if (!entry || !entry.biomes || !Array.isArray(entry.biomes)) continue;
+
+      const matched = entry.biomes.filter((b: string) => tagsSet.has(b));
+      if (matched.length > 0) {
+        results.push({
+          id: entry.id,
+          name: entry.name,
+          rarity: entry.bucket || 'common',
+          levelRange: entry.level ? `Lv. ${entry.level}` : 'Variável',
+          positions: entry.positions || ['grounded'],
+          timeRanges: entry.timeRanges,
+          conditions: entry.conditions,
+          matchedBiomes: matched,
+        });
+      }
+    }
+
+    const rarityWeight: Record<string, number> = {
+      'ultra-rare': 4,
+      'rare': 3,
+      'uncommon': 2,
+      'common': 1,
+    };
+
+    return results.sort((a, b) => {
+      const diff = (rarityWeight[b.rarity] || 0) - (rarityWeight[a.rarity] || 0);
+      if (diff !== 0) return diff;
+      return a.id - b.id;
+    });
   }
 };
 

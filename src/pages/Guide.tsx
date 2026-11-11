@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Compass, Sparkles, Filter, X, ArrowRight } from 'lucide-react';
+import { Search, Compass, Sparkles, Filter, X, ArrowRight, Globe } from 'lucide-react';
 import { COBBLEMON_EVOLUTIONS } from '../data/evolutions';
 import type { EvolutionData } from '../data/evolutions';
 import { COBBLEMON_BERRIES } from '../data/berries';
@@ -11,9 +11,10 @@ import { COBBLEMON_POKEBALLS } from '../data/pokeballs';
 import type { PokeBallData } from '../data/pokeballs';
 import { COBBLEMON_NATURES } from '../data/natures';
 import type { NatureData } from '../data/natures';
+import { BiomeAtlasView } from '../components/guide/BiomeAtlasView';
 
 export default function Guide() {
-  const [activeTab, setActiveTab] = useState<'evolutions' | 'berries' | 'fossils' | 'pokeballs' | 'natures'>('evolutions');
+  const [activeTab, setActiveTab] = useState<'atlas' | 'evolutions' | 'berries' | 'fossils' | 'pokeballs' | 'natures'>('atlas');
   const [search, setSearch] = useState('');
 
   // Evolution filters
@@ -118,6 +119,20 @@ export default function Guide() {
           <div className="flex flex-wrap bg-cobble-950/80 p-1.5 rounded-xl border border-cobble-700 self-stretch md:self-auto shadow-inner gap-1">
             <button
               onClick={() => {
+                setActiveTab('atlas');
+                setSearch('');
+              }}
+              className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'atlas'
+                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 shadow-md shadow-yellow-500/20'
+                  : 'text-cobble-300 hover:text-white hover:bg-cobble-800/50'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              Biomas
+            </button>
+            <button
+              onClick={() => {
                 setActiveTab('evolutions');
                 setSearch('');
               }}
@@ -185,86 +200,91 @@ export default function Guide() {
         </div>
       </div>
 
-      {/* Search and Filter Bar */}
-      <div className="bg-cobble-900/80 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-cobble-700/80 shadow-lg space-y-4">
-        <div className="flex flex-col md:flex-row items-center gap-4">
-          {/* Search Input */}
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cobble-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={
-                activeTab === 'evolutions'
-                  ? 'Buscar Pokémon ou método (ex: Eevee, Thunder Stone, Amizade, Chuva...)'
-                  : activeTab === 'berries'
-                  ? 'Buscar baga ou efeito (ex: Sitrus, Paralisia, EV, Fogo, Lum...)'
-                  : activeTab === 'fossils'
-                  ? 'Buscar fóssil, Pokémon ou local (ex: Helix, Omanyte, Deepslate, Cascalho...)'
-                  : activeTab === 'pokeballs'
-                  ? 'Buscar Poké Ball, receita ou condição (ex: Ultra Ball, Apricorn, Noite, Água...)'
-                  : 'Buscar Nature ou modificador (ex: Adamant, Modest, Jolly, Ataque, Velocidade...)'
-              }
-              className="w-full bg-cobble-950/80 border border-cobble-700 rounded-xl pl-12 pr-10 py-3 text-white placeholder-cobble-400 focus:outline-none focus:border-yellow-400 transition-colors shadow-inner text-sm"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-cobble-400 hover:text-white p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      {/* Search and Filter Bar (only for traditional guide tabs) */}
+      {activeTab !== 'atlas' && (
+        <div className="bg-cobble-900/80 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-cobble-700/80 shadow-lg space-y-4">
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            {/* Search Input */}
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cobble-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={
+                  activeTab === 'evolutions'
+                    ? 'Buscar Pokémon ou método (ex: Eevee, Thunder Stone, Amizade, Chuva...)'
+                    : activeTab === 'berries'
+                    ? 'Buscar baga ou efeito (ex: Sitrus, Paralisia, EV, Fogo, Lum...)'
+                    : activeTab === 'fossils'
+                    ? 'Buscar fóssil, Pokémon ou local (ex: Helix, Omanyte, Deepslate, Cascalho...)'
+                    : activeTab === 'pokeballs'
+                    ? 'Buscar Poké Ball, receita ou condição (ex: Ultra Ball, Apricorn, Noite, Água...)'
+                    : 'Buscar Nature ou modificador (ex: Adamant, Modest, Jolly, Ataque, Velocidade...)'
+                }
+                className="w-full bg-cobble-950/80 border border-cobble-700 rounded-xl pl-12 pr-10 py-3 text-white placeholder-cobble-400 focus:outline-none focus:border-yellow-400 transition-colors shadow-inner text-sm"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-cobble-400 hover:text-white p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Method Filter (Evolutions) */}
+            {activeTab === 'evolutions' && (
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <Filter className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                <div className="relative flex-1 md:w-64">
+                  <select
+                    value={evolutionMethodFilter}
+                    onChange={(e) => setEvolutionMethodFilter(e.target.value as any)}
+                    className="w-full appearance-none bg-cobble-950 border border-cobble-700 rounded-xl pl-3.5 pr-8 py-3 text-white font-medium focus:outline-none focus:border-yellow-400 cursor-pointer text-sm"
+                  >
+                    <option value="all" className="bg-cobble-900 text-white py-1">Todos os Métodos</option>
+                    <option value="pedra" className="bg-cobble-900 text-white py-1">Pedras Evolutivas</option>
+                    <option value="amizade" className="bg-cobble-900 text-white py-1">Amizade / Felicidade</option>
+                    <option value="troca" className="bg-cobble-900 text-white py-1">Troca ou Link Cable</option>
+                    <option value="condicao" className="bg-cobble-900 text-white py-1">Condição Especial (Clima/Golpe)</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-cobble-400 text-xs">▼</div>
+                </div>
+              </div>
+            )}
+
+            {/* Category Filter (Berries) */}
+            {activeTab === 'berries' && (
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <Filter className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                <div className="relative flex-1 md:w-64">
+                  <select
+                    value={berryCategoryFilter}
+                    onChange={(e) => setBerryCategoryFilter(e.target.value as any)}
+                    className="w-full appearance-none bg-cobble-950 border border-cobble-700 rounded-xl pl-3.5 pr-8 py-3 text-white font-medium focus:outline-none focus:border-yellow-400 cursor-pointer text-sm"
+                  >
+                    <option value="all" className="bg-cobble-900 text-white py-1">Todas as Categorias</option>
+                    <option value="cura" className="bg-cobble-900 text-white py-1">Cura de Vida (HP)</option>
+                    <option value="status" className="bg-cobble-900 text-white py-1">Cura de Problemas de Status</option>
+                    <option value="ev" className="bg-cobble-900 text-white py-1">Redução de Pontos de EV</option>
+                    <option value="resistencia" className="bg-cobble-900 text-white py-1">Resistência a Golpes Elementais</option>
+                    <option value="utilidade" className="bg-cobble-900 text-white py-1">Restauração de PP / Utilidades</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-cobble-400 text-xs">▼</div>
+                </div>
+              </div>
             )}
           </div>
-
-          {/* Method Filter (Evolutions) */}
-          {activeTab === 'evolutions' && (
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <Filter className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-              <div className="relative flex-1 md:w-64">
-                <select
-                  value={evolutionMethodFilter}
-                  onChange={(e) => setEvolutionMethodFilter(e.target.value as any)}
-                  className="w-full appearance-none bg-cobble-950 border border-cobble-700 rounded-xl pl-3.5 pr-8 py-3 text-white font-medium focus:outline-none focus:border-yellow-400 cursor-pointer text-sm"
-                >
-                  <option value="all" className="bg-cobble-900 text-white py-1">Todos os Métodos</option>
-                  <option value="pedra" className="bg-cobble-900 text-white py-1">Pedras Evolutivas</option>
-                  <option value="amizade" className="bg-cobble-900 text-white py-1">Amizade / Felicidade</option>
-                  <option value="troca" className="bg-cobble-900 text-white py-1">Troca ou Link Cable</option>
-                  <option value="condicao" className="bg-cobble-900 text-white py-1">Condição Especial (Clima/Golpe)</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-cobble-400 text-xs">▼</div>
-              </div>
-            </div>
-          )}
-
-          {/* Category Filter (Berries) */}
-          {activeTab === 'berries' && (
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <Filter className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-              <div className="relative flex-1 md:w-64">
-                <select
-                  value={berryCategoryFilter}
-                  onChange={(e) => setBerryCategoryFilter(e.target.value as any)}
-                  className="w-full appearance-none bg-cobble-950 border border-cobble-700 rounded-xl pl-3.5 pr-8 py-3 text-white font-medium focus:outline-none focus:border-yellow-400 cursor-pointer text-sm"
-                >
-                  <option value="all" className="bg-cobble-900 text-white py-1">Todas as Categorias</option>
-                  <option value="cura" className="bg-cobble-900 text-white py-1">Cura de Vida (HP)</option>
-                  <option value="status" className="bg-cobble-900 text-white py-1">Cura de Problemas de Status</option>
-                  <option value="ev" className="bg-cobble-900 text-white py-1">Redução de Pontos de EV</option>
-                  <option value="resistencia" className="bg-cobble-900 text-white py-1">Resistência a Golpes Elementais</option>
-                  <option value="utilidade" className="bg-cobble-900 text-white py-1">Restauração de PP / Utilidades</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-cobble-400 text-xs">▼</div>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
       {/* Content Area */}
-      {activeTab === 'evolutions' ? (
+      {activeTab === 'atlas' ? (
+        /* ================= ATLAS 3D TAB ================= */
+        <BiomeAtlasView />
+      ) : activeTab === 'evolutions' ? (
         /* ================= EVOLUTIONS TAB ================= */
         <div>
           {filteredEvolutions.length === 0 ? (
