@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Package, Sparkles, Filter, ChevronLeft, ChevronRight, Layers, ArrowUpDown, X, Loader2 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Search, Package, Filter, ChevronLeft, ChevronRight, Layers, ArrowUpDown, X, Loader2 } from 'lucide-react';
 import { cobblemonService } from '../services/cobblemon';
 import type { CobblemonPokemonDrops, CobblemonItemSource } from '../services/cobblemon';
 import { formatItemName } from '../utils/itemFormatter';
@@ -30,7 +30,10 @@ const TYPE_COLORS: Record<string, string> = {
 const ITEMS_PER_PAGE = 24;
 
 export default function LootTable() {
-  const [viewMode, setViewMode] = useState<'by-item' | 'by-pokemon'>('by-item');
+  const [searchParams] = useSearchParams();
+  const rawView = searchParams.get('view');
+  const viewMode: 'by-item' | 'by-pokemon' = rawView === 'by-pokemon' ? 'by-pokemon' : 'by-item';
+
   const [itemLootMap, setItemLootMap] = useState<Record<string, CobblemonItemSource[]>>({});
   const [pokemonDropsMap, setPokemonDropsMap] = useState<Record<number, CobblemonPokemonDrops>>({});
   const [loading, setLoading] = useState(true);
@@ -140,52 +143,7 @@ export default function LootTable() {
   }
 
   return (
-    <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-cobble-900 via-cobble-800 to-cobble-900 border border-yellow-500/30 p-6 sm:p-8 shadow-2xl">
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-xs font-bold uppercase tracking-wider mb-2">
-              <Sparkles className="w-3.5 h-3.5" />
-              Loot Table Oficial Cobblemon
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-wide flex items-center gap-3">
-              <Package className="w-9 h-9 text-yellow-400" />
-              Drops & Loot Tables
-            </h1>
-            <p className="text-cobble-300 text-sm sm:text-base mt-2 max-w-2xl">
-              Consulte quais itens cada Pokemon selvagem dropa ao ser derrotado, ou pesquise diretamente por um item para saber quem o dropa.
-            </p>
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex bg-cobble-950/80 p-1.5 rounded-xl border border-cobble-700 self-stretch md:self-auto shadow-inner">
-            <button
-              onClick={() => setViewMode('by-item')}
-              className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                viewMode === 'by-item'
-                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 shadow-md shadow-yellow-500/20'
-                  : 'text-cobble-300 hover:text-white hover:bg-cobble-800/50'
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              Por Itens ({Object.keys(itemLootMap).length})
-            </button>
-            <button
-              onClick={() => setViewMode('by-pokemon')}
-              className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                viewMode === 'by-pokemon'
-                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 shadow-md shadow-yellow-500/20'
-                  : 'text-cobble-300 hover:text-white hover:bg-cobble-800/50'
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              Por Pokémon ({Object.keys(pokemonDropsMap).length})
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
       {/* Search and Filters Bar */}
       <div className="bg-cobble-900/80 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-cobble-700/80 shadow-lg space-y-4">

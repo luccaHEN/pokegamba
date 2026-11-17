@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Compass, Sparkles, Filter, X, ArrowRight, Globe } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Search, Filter, X, ArrowRight } from 'lucide-react';
 import { COBBLEMON_EVOLUTIONS } from '../data/evolutions';
 import type { EvolutionData } from '../data/evolutions';
 import { COBBLEMON_BERRIES } from '../data/berries';
@@ -13,9 +13,23 @@ import { COBBLEMON_NATURES } from '../data/natures';
 import type { NatureData } from '../data/natures';
 import { BiomeAtlasView } from '../components/guide/BiomeAtlasView';
 
+export type GuideTab = 'atlas' | 'evolutions' | 'berries' | 'fossils' | 'pokeballs' | 'natures';
+
+const VALID_TABS: GuideTab[] = ['atlas', 'evolutions', 'berries', 'fossils', 'pokeballs', 'natures'];
+
 export default function Guide() {
-  const [activeTab, setActiveTab] = useState<'atlas' | 'evolutions' | 'berries' | 'fossils' | 'pokeballs' | 'natures'>('atlas');
+  const [searchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab') as GuideTab | null;
+  const activeTab: GuideTab = (rawTab && VALID_TABS.includes(rawTab))
+    ? rawTab
+    : 'atlas';
+
   const [search, setSearch] = useState('');
+
+  // Reset search on tab change
+  useEffect(() => {
+    setSearch('');
+  }, [activeTab]);
 
   // Evolution filters
   const [evolutionMethodFilter, setEvolutionMethodFilter] = useState<'all' | 'pedra' | 'amizade' | 'troca' | 'condicao'>('all');
@@ -96,109 +110,7 @@ export default function Guide() {
   }, [search]);
 
   return (
-    <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-cobble-900 via-cobble-800 to-cobble-900 border border-yellow-500/30 p-6 sm:p-8 shadow-2xl">
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-xs font-bold uppercase tracking-wider mb-2">
-              <Sparkles className="w-3.5 h-3.5" />
-              Guia Completo Cobblemon
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-wide flex items-center gap-3">
-              <Compass className="w-9 h-9 text-yellow-400" />
-              Guia Cobblemon & Sobrevivência
-            </h1>
-            <p className="text-cobble-300 text-sm sm:text-base mt-2 max-w-2xl">
-              Consulte métodos evolutivos especiais, efeitos e cultivo de bagas, escavação de fósseis pré-históricos e receitas de criação de Poké Balls com Apricorns.
-            </p>
-          </div>
-
-          {/* Sub-tabs Toggle */}
-          <div className="flex flex-wrap bg-cobble-950/80 p-1.5 rounded-xl border border-cobble-700 self-stretch md:self-auto shadow-inner gap-1">
-            <button
-              onClick={() => {
-                setActiveTab('atlas');
-                setSearch('');
-              }}
-              className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'atlas'
-                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 shadow-md shadow-yellow-500/20'
-                  : 'text-cobble-300 hover:text-white hover:bg-cobble-800/50'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5" />
-              Biomas
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('evolutions');
-                setSearch('');
-              }}
-              className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'evolutions'
-                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 shadow-md shadow-yellow-500/20'
-                  : 'text-cobble-300 hover:text-white hover:bg-cobble-800/50'
-              }`}
-            >
-              Evoluções ({COBBLEMON_EVOLUTIONS.length})
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('berries');
-                setSearch('');
-              }}
-              className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'berries'
-                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 shadow-md shadow-yellow-500/20'
-                  : 'text-cobble-300 hover:text-white hover:bg-cobble-800/50'
-              }`}
-            >
-              Bagas ({COBBLEMON_BERRIES.length})
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('fossils');
-                setSearch('');
-              }}
-              className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'fossils'
-                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 shadow-md shadow-yellow-500/20'
-                  : 'text-cobble-300 hover:text-white hover:bg-cobble-800/50'
-              }`}
-            >
-              Fósseis ({COBBLEMON_FOSSILS.length})
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('pokeballs');
-                setSearch('');
-              }}
-              className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'pokeballs'
-                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 shadow-md shadow-yellow-500/20'
-                  : 'text-cobble-300 hover:text-white hover:bg-cobble-800/50'
-              }`}
-            >
-              Poké Balls ({COBBLEMON_POKEBALLS.length})
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('natures');
-                setSearch('');
-              }}
-              className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'natures'
-                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 shadow-md shadow-yellow-500/20'
-                  : 'text-cobble-300 hover:text-white hover:bg-cobble-800/50'
-              }`}
-            >
-              Natures ({COBBLEMON_NATURES.length})
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
       {/* Search and Filter Bar (only for traditional guide tabs) */}
       {activeTab !== 'atlas' && (

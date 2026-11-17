@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Dices, Filter, Settings2, Sparkles, RefreshCw, History as HistoryIcon, 
-  Users, Plus, X, Share2, Check, Zap, Shuffle, Image as ImageIcon, Crown, AlertTriangle, BookOpen, Volume2, VolumeX 
+  Users, Plus, X, Share2, Check, Zap, Shuffle, Image as ImageIcon, Crown, AlertTriangle, BookOpen, Volume2, VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../components/ui/Button';
@@ -74,11 +74,18 @@ export default function Lottery() {
 
   // History & Session
   const [history, setHistory] = useLocalStorage<LotteryHistorySession[]>('cobblemon-history', []);
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [currentSessionParticipants, setCurrentSessionParticipants] = useState<string[]>([]);
   const [currentSessionFilters, setCurrentSessionFilters] = useState<string[]>([]);
   const [copiedDiscord, setCopiedDiscord] = useState(false);
   const [copiedImage, setCopiedImage] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
+  const handleClearHistory = () => {
+    if (window.confirm('Deseja limpar todo o histórico de sorteios desta sessão?')) {
+      setHistory([]);
+    }
+  };
 
   // Participants State: simple clean list of trainer names
   const [rawParticipants, setRawParticipants] = useLocalStorage<any[]>('cobblemon-participants', []);
@@ -131,8 +138,6 @@ export default function Lottery() {
   const [quickQty, setQuickQty] = useState(6);
   const [quickLegendaries, setQuickLegendaries] = useState(false);
   const [quickEvolution, setQuickEvolution] = useState<'all' | '1' | '2' | '3'>('all');
-  const [quickUniqueTypes, setQuickUniqueTypes] = useState(true);
-  const [quickUniqueEvolutions, setQuickUniqueEvolutions] = useState(true);
 
   // Tab 3: Type Roulette State
   const [drawnType, setDrawnType] = useState<string | null>(null);
@@ -350,8 +355,8 @@ export default function Lottery() {
       evolution: quickEvolution,
       allowLegendary: quickLegendaries,
       allowMythical: quickLegendaries,
-      uniqueTypes: quickUniqueTypes,
-      uniqueEvolutions: quickUniqueEvolutions
+      uniqueTypes: true,
+      uniqueEvolutions: true
     };
 
     handleDraw(quickQty, quickFilters);
@@ -798,25 +803,43 @@ export default function Lottery() {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 relative z-10">
+      {/* TOP BAR ACTION */}
+      <div className="flex justify-end pb-1">
+        <button
+          type="button"
+          onClick={() => setIsHistoryDrawerOpen(true)}
+          className="px-4 py-2 rounded-xl bg-cobble-800/90 hover:bg-cobble-700 text-cobble-200 hover:text-white border border-cobble-700 hover:border-yellow-500/50 text-xs font-bold flex items-center gap-2 transition-all shadow-md group cursor-pointer"
+          title="Abrir histórico da sessão"
+        >
+          <HistoryIcon className="w-4 h-4 text-yellow-400 group-hover:rotate-[-20deg] transition-transform" />
+          <span>Histórico da Sessão</span>
+          {history.length > 0 && (
+            <span className="bg-yellow-400 text-yellow-950 px-2 py-0.5 rounded-full font-black text-[10px]">
+              {history.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10 items-start">
         
-        {/* LEFT COLUMN: Clean Trainers & Unified Lottery Modes */}
-        <div className="xl:col-span-4 flex flex-col gap-3">
+        {/* LEFT COLUMN: Clean Control Panel */}
+        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
           
           {/* 1. CLEAN COMPACT TRAINERS CARD */}
-          <div className="bg-cobble-800 border-4 border-cobble-700 p-3 shadow-xl flex flex-col h-fit">
-            <div className="flex items-center justify-between mb-2 border-b-2 border-cobble-700 pb-1.5">
+          <div className="bg-cobble-800/90 rounded-2xl border border-cobble-700/80 p-4 shadow-xl flex flex-col">
+            <div className="flex items-center justify-between mb-3 border-b border-cobble-700/80 pb-2">
               <h2 className="text-sm font-black text-white flex items-center">
                 <Users className="w-4 h-4 mr-1.5 text-yellow-400" /> Treinadores ({participants.length})
               </h2>
               {participants.length > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-1 bg-black/50 border border-cobble-600 px-2 py-0.5 rounded">
+                  <div className="flex items-center gap-1 bg-cobble-900 border border-cobble-700 px-2.5 py-1 rounded-lg">
                     <span className="text-[10px] text-cobble-400 font-bold">Para:</span>
                     <select
                       value={activeSelectedTrainer}
                       onChange={(e) => setSelectedTrainer(e.target.value)}
-                      className="bg-transparent text-yellow-300 font-black text-xs outline-none cursor-pointer max-w-[105px] truncate"
+                      className="bg-transparent text-yellow-300 font-black text-xs outline-none cursor-pointer max-w-[110px] truncate"
                       title="Escolha para qual amigo o sorteio será realizado"
                     >
                       {participants.length > 1 && (
@@ -843,14 +866,14 @@ export default function Lottery() {
             {/* Spin The Wheel Launcher Button */}
             <button
               onClick={() => setIsTrainerWheelOpen(true)}
-              className="w-full mb-2.5 py-1.5 px-2.5 bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 hover:from-amber-500/30 hover:to-yellow-500/40 border border-yellow-500/60 rounded-lg flex items-center justify-between text-xs font-black text-yellow-300 transition-all shadow-sm cursor-pointer group active:scale-[0.98]"
+              className="w-full mb-3 py-2 px-3 bg-gradient-to-r from-amber-500/10 via-yellow-500/20 to-amber-500/10 hover:from-amber-500/20 hover:to-yellow-500/30 border border-yellow-500/40 rounded-xl flex items-center justify-between text-xs font-black text-yellow-300 transition-all shadow-sm cursor-pointer group active:scale-[0.98]"
               title="Abrir a roleta circular estilo SpinTheWheel para sortear a ordem dos treinadores"
             >
               <div className="flex items-center gap-1.5 truncate">
                 <span className="text-base">🎡</span>
                 <span className="truncate">Roleta de Ordem dos Treinadores</span>
               </div>
-              <span className="text-[10px] bg-yellow-500 text-slate-950 px-2 py-0.5 rounded font-black shrink-0 shadow">
+              <span className="text-[10px] bg-yellow-500 text-slate-950 px-2.5 py-0.5 rounded-lg font-black shrink-0 shadow">
                 GIRAR
               </span>
             </button>
@@ -1005,15 +1028,16 @@ export default function Lottery() {
 
             {/* TAB CONTENT 1: CUSTOM LOTTERY */}
             {lotteryTab === 'custom' && (
-              <div className="space-y-3 animate-in fade-in duration-200">
-                <div className="bg-black/30 p-2.5 border-2 border-cobble-700 group">
-                  <h3 className="font-bold text-xs text-slate-200 mb-1.5 flex items-center tracking-widest">
-                    <Dices className="w-4 h-4 mr-1.5 text-slate-400" /> Quantidade de Pokémon
+              <div className="space-y-2.5 animate-in fade-in duration-200">
+                {/* Quantidade */}
+                <div className="bg-cobble-900/80 p-2.5 rounded-xl border border-cobble-700">
+                  <h3 className="font-bold text-xs text-slate-200 mb-1 flex items-center tracking-widest">
+                    <Dices className="w-3.5 h-3.5 mr-1.5 text-yellow-400" /> Quantidade de Pokémon
                   </h3>
                   <select
                     value={quantity}
                     onChange={(e) => setQuantity(parseInt(e.target.value))}
-                    className="w-full bg-cobble-800 border-2 border-cobble-700 p-2 text-white outline-none font-bold text-sm cursor-pointer appearance-none"
+                    className="w-full bg-cobble-800 border border-cobble-700 p-1.5 text-white outline-none font-bold text-xs cursor-pointer rounded-lg"
                   >
                     {[1, 2, 3, 4, 5, 6].map(num => (
                       <option key={num} value={num}>{num} Pokémon{num > 1 ? 's' : ''}</option>
@@ -1021,15 +1045,16 @@ export default function Lottery() {
                   </select>
                 </div>
 
-                <div className="flex gap-2">
-                  <div className="bg-black/30 p-2.5 border-2 border-cobble-700 group w-1/2">
-                    <h3 className="font-bold text-xs text-slate-200 mb-1 flex items-center tracking-widest">
-                      <Filter className="w-3.5 h-3.5 mr-1 text-slate-400" /> Tipo 1
+                {/* Tipos: Tipo 1 & Tipo 2 */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-cobble-900/80 p-2 rounded-xl border border-cobble-700">
+                    <h3 className="font-bold text-[11px] text-slate-300 mb-1 flex items-center">
+                      <Filter className="w-3 h-3 mr-1 text-slate-400" /> Tipo 1
                     </h3>
                     <select
                       value={filters.type1}
                       onChange={(e) => updateFilter('type1', e.target.value)}
-                      className="w-full bg-cobble-800 border-2 border-cobble-700 p-1.5 text-white outline-none capitalize font-bold text-xs cursor-pointer appearance-none"
+                      className="w-full bg-cobble-800 border border-cobble-700 p-1.5 text-white outline-none capitalize font-bold text-xs cursor-pointer rounded-lg"
                     >
                       {TYPES.map(t => (
                         <option key={t} value={t} disabled={t !== 'all' && filters.type2 === t}>
@@ -1039,14 +1064,14 @@ export default function Lottery() {
                     </select>
                   </div>
 
-                  <div className="bg-black/30 p-2.5 border-2 border-cobble-700 group w-1/2">
-                    <h3 className="font-bold text-xs text-slate-200 mb-1 flex items-center tracking-widest">
-                      <Filter className="w-3.5 h-3.5 mr-1 text-slate-400" /> Tipo 2
+                  <div className="bg-cobble-900/80 p-2 rounded-xl border border-cobble-700">
+                    <h3 className="font-bold text-[11px] text-slate-300 mb-1 flex items-center">
+                      <Filter className="w-3 h-3 mr-1 text-slate-400" /> Tipo 2
                     </h3>
                     <select
                       value={filters.type2}
                       onChange={(e) => updateFilter('type2', e.target.value)}
-                      className="w-full bg-cobble-800 border-2 border-cobble-700 p-1.5 text-white outline-none capitalize font-bold text-xs cursor-pointer appearance-none"
+                      className="w-full bg-cobble-800 border border-cobble-700 p-1.5 text-white outline-none capitalize font-bold text-xs cursor-pointer rounded-lg"
                     >
                       <option value="all">Qualquer</option>
                       <option value="none" className="text-red-400 font-bold">Nenhum</option>
@@ -1057,15 +1082,16 @@ export default function Lottery() {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <div className="bg-black/30 p-2.5 border-2 border-cobble-700 group w-1/2">
-                    <h3 className="font-bold text-xs text-slate-200 mb-1 flex items-center tracking-widest">
-                      <Filter className="w-3.5 h-3.5 mr-1 text-slate-400" /> Geração
+                {/* Geração & Raridade */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-cobble-900/80 p-2 rounded-xl border border-cobble-700">
+                    <h3 className="font-bold text-[11px] text-slate-300 mb-1 flex items-center">
+                      <Filter className="w-3 h-3 mr-1 text-slate-400" /> Geração
                     </h3>
                     <select
                       value={filters.generation}
                       onChange={(e) => updateFilter('generation', parseInt(e.target.value))}
-                      className="w-full bg-cobble-800 border-2 border-cobble-700 p-1.5 text-white outline-none font-bold text-xs cursor-pointer appearance-none"
+                      className="w-full bg-cobble-800 border border-cobble-700 p-1.5 text-white outline-none font-bold text-xs cursor-pointer rounded-lg"
                     >
                       {GENS.map(g => (
                         <option key={g.id} value={g.id}>{g.name}</option>
@@ -1073,14 +1099,14 @@ export default function Lottery() {
                     </select>
                   </div>
 
-                  <div className="bg-black/30 p-2.5 border-2 border-cobble-700 group w-1/2">
-                    <h3 className="font-bold text-xs text-slate-200 mb-1 flex items-center tracking-widest">
-                      <Sparkles className="w-3.5 h-3.5 mr-1 text-purple-400" /> Raridade
+                  <div className="bg-cobble-900/80 p-2 rounded-xl border border-cobble-700">
+                    <h3 className="font-bold text-[11px] text-slate-300 mb-1 flex items-center">
+                      <Sparkles className="w-3 h-3 mr-1 text-purple-400" /> Raridade
                     </h3>
                     <select
                       value={filters.rarity || 'all'}
                       onChange={(e) => updateFilter('rarity', e.target.value)}
-                      className="w-full bg-cobble-800 border-2 border-cobble-700 p-1.5 text-white outline-none font-bold text-xs cursor-pointer appearance-none"
+                      className="w-full bg-cobble-800 border border-cobble-700 p-1.5 text-white outline-none font-bold text-xs cursor-pointer rounded-lg"
                     >
                       <option value="all">Misto</option>
                       <option value="normal">Comuns</option>
@@ -1090,65 +1116,38 @@ export default function Lottery() {
                   </div>
                 </div>
 
-                <div className={cn("bg-black/30 p-2.5 border-2", isEvolutionDisabled ? "border-cobble-800 opacity-60" : "border-cobble-700")}>
-                  <h3 className="font-bold text-xs text-slate-200 mb-1 flex items-center tracking-widest">
-                    <Sparkles className={cn("w-3.5 h-3.5 mr-1", isEvolutionDisabled ? "text-cobble-600" : "text-green-500/50")} /> Evolução
-                  </h3>
-                  <select
-                    value={filters.evolution || 'all'}
-                    onChange={(e) => updateFilter('evolution', e.target.value)}
-                    disabled={isEvolutionDisabled}
-                    className={cn("w-full bg-cobble-800 border-2 p-1.5 text-white outline-none font-bold text-xs appearance-none",
-                      isEvolutionDisabled ? "border-cobble-800 cursor-not-allowed text-slate-400" : "border-cobble-700 cursor-pointer"
-                    )}
-                  >
-                    <option value="all">{isEvolutionDisabled ? 'Lendários ñ evoluem' : 'Qualquer Estágio'}</option>
-                    {!isEvolutionDisabled && <option value="base" className="text-green-400 font-bold">Base (Estágio 1)</option>}
-                    {!isEvolutionDisabled && <option value="evolved" className="text-blue-400 font-bold">Evoluídos</option>}
-                  </select>
-                </div>
-
-                {/* Unique Types Toggle */}
-                <div 
-                  onClick={() => updateFilter('uniqueTypes', !filters.uniqueTypes)}
-                  className="bg-black/30 p-2.5 border-2 border-cobble-700 flex items-center justify-between cursor-pointer hover:border-yellow-500/70 transition-colors"
-                >
-                  <div>
-                    <h3 className="font-black text-xs text-yellow-300 flex items-center tracking-wider">
-                      <Zap className="w-3.5 h-3.5 mr-1 text-yellow-400" /> Não Repetir Tipos
+                {/* Evolução & Botão Limpar */}
+                <div className="flex gap-2 items-center">
+                  <div className={cn("bg-cobble-900/80 p-2 rounded-xl border flex-1", isEvolutionDisabled ? "border-cobble-800 opacity-60" : "border-cobble-700")}>
+                    <h3 className="font-bold text-[11px] text-slate-300 mb-1 flex items-center">
+                      <Sparkles className={cn("w-3 h-3 mr-1", isEvolutionDisabled ? "text-cobble-600" : "text-green-400")} /> Evolução
                     </h3>
-                    <p className="text-[10px] text-cobble-400">Garante tipos elementais variados</p>
+                    <select
+                      value={filters.evolution || 'all'}
+                      onChange={(e) => updateFilter('evolution', e.target.value)}
+                      disabled={isEvolutionDisabled}
+                      className={cn("w-full bg-cobble-800 border p-1.5 text-white outline-none font-bold text-xs rounded-lg",
+                        isEvolutionDisabled ? "border-cobble-800 cursor-not-allowed text-slate-400" : "border-cobble-700 cursor-pointer"
+                      )}
+                    >
+                      <option value="all">{isEvolutionDisabled ? 'Lendários ñ evoluem' : 'Qualquer Estágio'}</option>
+                      {!isEvolutionDisabled && <option value="base" className="text-green-400 font-bold">Base (Estágio 1)</option>}
+                      {!isEvolutionDisabled && <option value="evolved" className="text-blue-400 font-bold">Evoluídos</option>}
+                    </select>
                   </div>
-                  <div className={cn(
-                    "w-10 h-5 flex items-center p-0.5 border-2 transition-all",
-                    filters.uniqueTypes ? "bg-yellow-500 border-yellow-300 justify-end" : "bg-cobble-900 border-cobble-700 justify-start"
-                  )}>
-                    <div className={cn("w-3 h-3 shadow-md", filters.uniqueTypes ? "bg-cobble-950" : "bg-cobble-500")} />
-                  </div>
-                </div>
 
-                {/* Unique Evolutions Toggle */}
-                <div 
-                  onClick={() => updateFilter('uniqueEvolutions', filters.uniqueEvolutions === false ? true : false)}
-                  className="bg-black/30 p-2.5 border-2 border-cobble-700 flex items-center justify-between cursor-pointer hover:border-blue-500/70 transition-colors"
-                >
-                  <div>
-                    <h3 className="font-black text-xs text-blue-300 flex items-center tracking-wider">
-                      <Sparkles className="w-3.5 h-3.5 mr-1 text-blue-400" /> Sem Mesma Evolução
-                    </h3>
-                    <p className="text-[10px] text-cobble-400">Impede mesma família (ex: Wartortle e Squirtle)</p>
-                  </div>
-                  <div className={cn(
-                    "w-10 h-5 flex items-center p-0.5 border-2 transition-all",
-                    filters.uniqueEvolutions !== false ? "bg-blue-600 border-blue-400 justify-end" : "bg-cobble-900 border-cobble-700 justify-start"
-                  )}>
-                    <div className={cn("w-3 h-3 shadow-md", filters.uniqueEvolutions !== false ? "bg-white" : "bg-cobble-500")} />
-                  </div>
+                  {(filters.type1 !== 'all' || filters.type2 !== 'all' || filters.generation !== 0 || (filters.rarity && filters.rarity !== 'all') || (filters.evolution && filters.evolution !== 'all') || quantity > 1) && (
+                    <Button
+                      type="button"
+                      onClick={resetFilters}
+                      variant="secondary"
+                      size="sm"
+                      className="self-end h-[38px] px-3 text-xs text-cobble-300 hover:text-white rounded-xl border border-cobble-700 hover:bg-cobble-800"
+                    >
+                      Limpar
+                    </Button>
+                  )}
                 </div>
-
-                <Button onClick={resetFilters} variant="secondary" className="w-full text-xs py-2 mt-1" size="sm">
-                  Limpar Filtros
-                </Button>
               </div>
             )}
 
@@ -1213,44 +1212,6 @@ export default function Lottery() {
                     quickLegendaries ? "bg-purple-600 border-purple-400 justify-end" : "bg-cobble-900 border-cobble-700 justify-start"
                   )}>
                     <div className={cn("w-3 h-3 shadow-md", quickLegendaries ? "bg-white" : "bg-cobble-500")} />
-                  </div>
-                </div>
-
-                {/* Quick Unique Types Toggle */}
-                <div 
-                  onClick={() => setQuickUniqueTypes(!quickUniqueTypes)}
-                  className="bg-black/30 p-2.5 border-2 border-cobble-700 flex items-center justify-between cursor-pointer hover:border-yellow-500/70 transition-colors"
-                >
-                  <div>
-                    <h3 className="font-black text-xs text-yellow-300 flex items-center tracking-wider">
-                      <Zap className="w-3.5 h-3.5 mr-1 text-yellow-400" /> Não Repetir Tipos
-                    </h3>
-                    <p className="text-[10px] text-cobble-400">Garante 100% de variedade elemental</p>
-                  </div>
-                  <div className={cn(
-                    "w-10 h-5 flex items-center p-0.5 border-2 transition-all",
-                    quickUniqueTypes ? "bg-yellow-500 border-yellow-300 justify-end" : "bg-cobble-900 border-cobble-700 justify-start"
-                  )}>
-                    <div className={cn("w-3 h-3 shadow-md", quickUniqueTypes ? "bg-cobble-950" : "bg-cobble-500")} />
-                  </div>
-                </div>
-
-                {/* Quick Unique Evolutions Toggle */}
-                <div 
-                  onClick={() => setQuickUniqueEvolutions(!quickUniqueEvolutions)}
-                  className="bg-black/30 p-2.5 border-2 border-cobble-700 flex items-center justify-between cursor-pointer hover:border-blue-500/70 transition-colors"
-                >
-                  <div>
-                    <h3 className="font-black text-xs text-blue-300 flex items-center tracking-wider">
-                      <Sparkles className="w-3.5 h-3.5 mr-1 text-blue-400" /> Sem Mesma Evolução
-                    </h3>
-                    <p className="text-[10px] text-cobble-400">Evita pokémons da mesma linha evolutiva juntos</p>
-                  </div>
-                  <div className={cn(
-                    "w-10 h-5 flex items-center p-0.5 border-2 transition-all",
-                    quickUniqueEvolutions ? "bg-blue-600 border-blue-400 justify-end" : "bg-cobble-900 border-cobble-700 justify-start"
-                  )}>
-                    <div className={cn("w-3 h-3 shadow-md", quickUniqueEvolutions ? "bg-white" : "bg-cobble-500")} />
                   </div>
                 </div>
               </div>
@@ -1503,33 +1464,29 @@ export default function Lottery() {
           </div>
         </div>
 
-        {/* CENTER COLUMN: Gachapon Machine OR Starters Draft Board */}
-        <div className="xl:col-span-5 flex flex-col items-center justify-start bg-cobble-800 border-4 border-cobble-700 p-4 shadow-inner relative min-h-[520px]">
-          <h2 className="text-3xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-md mb-1 text-center" style={{ WebkitTextStroke: '1px #423223' }}>
-            PokeGamba
-          </h2>
-          
+        {/* CENTER/STAGE COLUMN: Gachapon Machine OR Starters Draft Board */}
+        <div className="lg:col-span-7 xl:col-span-8 flex flex-col items-center justify-start bg-cobble-800/80 rounded-3xl border border-cobble-700/80 p-6 md:p-8 shadow-2xl relative min-h-[560px]">
           {/* Active Mode & Target Trainer Pills */}
-          <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5">
-            <div className="px-2.5 py-0.5 bg-black/40 border border-cobble-700 rounded-full flex items-center gap-1.5 text-xs font-bold">
+          <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
+            <div className="px-3 py-1 bg-cobble-900/80 border border-cobble-700 rounded-full flex items-center gap-2 text-xs font-bold shadow-sm">
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
               <span className="text-cobble-300">Modo:</span>
               <span className="text-yellow-400 uppercase font-black">
                 {lotteryTab === 'custom' ? 'Personalizado' : lotteryTab === 'quick' ? 'Equipe Rápida' : lotteryTab === 'type' ? 'Roleta de Tipo' : 'Draft 27 Iniciais'}
               </span>
               {lotteryTab === 'starters' ? (
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-500/40 font-bold">
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40 font-bold">
                   🔒 {27 - Object.keys(claimedStarters).length}/27 Restantes
                 </span>
-              ) : (filters.uniqueTypes || (lotteryTab === 'quick' && quickUniqueTypes)) && (
-                <span className="text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.2 rounded border border-yellow-500/40">
+              ) : (filters.uniqueTypes !== false) && (
+                <span className="text-[10px] bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full border border-yellow-500/40 font-bold">
                   🔒 Sem Repetir
                 </span>
               )}
             </div>
 
             {participants.length > 0 && (
-              <div className="px-2.5 py-0.5 bg-black/40 border border-cobble-700 rounded-full flex items-center gap-1.5 text-xs font-bold">
+              <div className="px-3 py-1 bg-cobble-900/80 border border-cobble-700 rounded-full flex items-center gap-2 text-xs font-bold shadow-sm">
                 <span className="text-cobble-300">Para:</span>
                 <span className="text-yellow-300 font-black">
                   {activeSelectedTrainer !== 'all' ? `👑 ${activeSelectedTrainer}` : `👥 Todos (${participants.length})`}
@@ -1540,13 +1497,13 @@ export default function Lottery() {
 
           {/* Starters Center View Switcher */}
           {lotteryTab === 'starters' && (
-            <div className="flex border border-cobble-600 bg-black/50 p-0.5 rounded-lg mb-2 gap-1">
+            <div className="flex border border-cobble-700 bg-cobble-900/90 p-1 rounded-xl mb-3 gap-1 shadow-inner">
               <button
                 onClick={() => setStartersCenterView('board')}
                 className={cn(
-                  "px-2.5 py-1 rounded text-xs font-black transition-all flex items-center gap-1 cursor-pointer",
+                  "px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer",
                   startersCenterView === 'board'
-                    ? "bg-yellow-500 text-slate-950 shadow"
+                    ? "bg-yellow-500 text-slate-950 shadow-md"
                     : "text-cobble-300 hover:text-white"
                 )}
               >
@@ -1555,9 +1512,9 @@ export default function Lottery() {
               <button
                 onClick={() => setStartersCenterView('gachapon')}
                 className={cn(
-                  "px-2.5 py-1 rounded text-xs font-black transition-all flex items-center gap-1 cursor-pointer",
+                  "px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer",
                   startersCenterView === 'gachapon'
-                    ? "bg-yellow-500 text-slate-950 shadow"
+                    ? "bg-yellow-500 text-slate-950 shadow-md"
                     : "text-cobble-300 hover:text-white"
                 )}
               >
@@ -1577,18 +1534,18 @@ export default function Lottery() {
             <Gachapon isDrawing={isDrawing} queue={drawingQueue} />
           )}
 
-          <div className="mt-auto w-full max-w-sm pt-4">
+          <div className="mt-auto w-full max-w-sm pt-6">
             <Button 
               onClick={handleMasterSpin} 
               disabled={isDrawing || isDrawingType || isSpinningStarter || (lotteryTab === 'starters' && 27 - Object.keys(claimedStarters).length === 0)}
               size="lg"
               className={cn(
-                "w-full py-5 text-2xl font-black shadow-xl transition-all",
+                "w-full py-5 text-2xl font-black shadow-xl transition-all rounded-2xl active:scale-95 cursor-pointer",
                 lotteryTab === 'starters'
                   ? "!bg-emerald-600 hover:!bg-emerald-500 !border-emerald-800 text-white"
                   : lotteryTab === 'type' && !drawnType 
                   ? "!bg-blue-600 hover:!bg-blue-500 !border-blue-800" 
-                  : "!bg-yellow-500 hover:!bg-yellow-400 !text-slate-950 !border-yellow-600"
+                  : "!bg-gradient-to-r !from-yellow-400 !to-yellow-500 hover:!from-yellow-300 hover:!to-yellow-400 !text-slate-950 !border-yellow-600 shadow-yellow-500/20"
               )}
             >
               {isDrawing || isDrawingType || isSpinningStarter ? (
@@ -1614,51 +1571,102 @@ export default function Lottery() {
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* RIGHT COLUMN: Live Feed / History */}
-        <div className="xl:col-span-3 flex flex-col gap-4">
-          <div className="bg-cobble-800 border-4 border-cobble-700 p-4 shadow-xl flex flex-col h-full max-h-[560px]">
-            <h2 className="text-xl font-black text-white mb-4 border-b-4 border-cobble-700 pb-2 flex items-center">
-              <HistoryIcon className="w-5 h-5 mr-2 text-yellow-400" /> Últimos Ganhadores
-            </h2>
+      {/* ======================================================== */}
+      {/* SLIDE-OVER HISTORY DRAWER */}
+      {/* ======================================================== */}
+      <AnimatePresence>
+        {isHistoryDrawerOpen && (
+          <div className="fixed inset-0 z-[120] flex justify-end">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsHistoryDrawerOpen(false)}
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm cursor-pointer"
+            />
             
-            <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-               {history.slice(0, 20).map(h => (
-                  <div 
-                    key={h.id} 
-                    onClick={() => viewHistoryResults(h)}
-                    className="bg-cobble-900 border-2 border-cobble-700 p-2.5 hover:border-cobble-500 hover:bg-cobble-800 transition-colors cursor-pointer group shadow-sm"
-                    title="Clique para ver este resultado!"
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="relative w-full max-w-md bg-cobble-900 border-l border-cobble-700 p-5 flex flex-col justify-between shadow-2xl z-10 h-full"
+            >
+              <div className="flex flex-col h-full min-h-0">
+                <div className="flex items-center justify-between pb-4 border-b border-cobble-800 mb-4 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <HistoryIcon className="w-5 h-5 text-yellow-400" />
+                    <h3 className="text-lg font-black text-white">Histórico da Sessão</h3>
+                    <span className="text-xs bg-yellow-400 text-yellow-950 font-black px-2 py-0.5 rounded-full">
+                      {history.length}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setIsHistoryDrawerOpen(false)}
+                    className="p-1.5 text-cobble-400 hover:text-white rounded-lg hover:bg-cobble-800 transition-colors cursor-pointer"
                   >
-                     <div className="text-slate-200 group-hover:text-yellow-400 text-xs mb-1 font-bold tracking-wider transition-colors flex items-center justify-between">
-                       <span>{new Date(h.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                       <span className="text-[10px] text-cobble-400">{h.pokemons.length} Pokémon{h.pokemons.length > 1 ? 's' : ''}</span>
-                     </div>
-                     {h.participants && h.participants.length > 0 && (
-                       <div className="text-yellow-400 text-xs mb-2 font-bold truncate flex items-center gap-1">
-                         <span>👑</span> {h.participants.slice(0, 3).join(', ')}{h.participants.length > 3 ? ` +${h.participants.length - 3}` : ''}
-                       </div>
-                     )}
-                     <div className="flex flex-wrap gap-1.5">
-                       {h.pokemons.map((p, idx) => (
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar min-h-0">
+                  {history.slice(0, 30).map(h => (
+                    <div 
+                      key={h.id} 
+                      onClick={() => {
+                        viewHistoryResults(h);
+                        setIsHistoryDrawerOpen(false);
+                      }}
+                      className="bg-cobble-800/80 border border-cobble-700 hover:border-yellow-400/60 rounded-xl p-3 hover:bg-cobble-800 transition-all cursor-pointer group shadow-sm"
+                      title="Clique para carregar e ver este resultado no modal!"
+                    >
+                      <div className="text-slate-200 group-hover:text-yellow-400 text-xs mb-1 font-bold tracking-wider transition-colors flex items-center justify-between">
+                        <span>{new Date(h.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[10px] text-cobble-400">{h.pokemons.length} Pokémon{h.pokemons.length > 1 ? 's' : ''}</span>
+                      </div>
+                      {h.participants && h.participants.length > 0 && (
+                        <div className="text-yellow-400 text-xs mb-2 font-bold truncate flex items-center gap-1">
+                          <span>👑</span> {h.participants.slice(0, 3).join(', ')}{h.participants.length > 3 ? ` +${h.participants.length - 3}` : ''}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {h.pokemons.map((p, idx) => (
                           <div key={`${p.id}-${idx}`} className="relative">
                             <img 
                               src={(p.id === 20 || p.name === 'raticate' || p.name === 'raticate-alola') ? raticateImg : p.sprites.front_default} 
-                              className="w-10 h-10 bg-cobble-800 border-2 border-cobble-700 object-contain p-0.5 group-hover:border-yellow-500/70 transition-colors" 
+                              className="w-10 h-10 bg-cobble-900 border border-cobble-700 rounded-lg object-contain p-0.5 group-hover:border-yellow-500/70 transition-colors" 
                               alt={p.name} 
                             />
                           </div>
-                       ))}
-                     </div>
-                  </div>
-               ))}
-               {history.length === 0 && (
-                 <div className="text-cobble-400 text-center mt-12 text-sm italic font-medium">Nenhum sorteio ainda.</div>
-               )}
-            </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {history.length === 0 && (
+                    <div className="text-cobble-400 text-center py-16 text-sm italic font-medium">
+                      Nenhum sorteio registrado nesta sessão.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {history.length > 0 && (
+                <div className="pt-3 border-t border-cobble-800 flex justify-between items-center shrink-0">
+                  <span className="text-xs text-cobble-400">Total: {history.length} sorteios</span>
+                  <button
+                    onClick={handleClearHistory}
+                    className="text-xs text-red-400 hover:text-red-300 font-bold transition-colors cursor-pointer"
+                  >
+                    Limpar Histórico
+                  </button>
+                </div>
+              )}
+            </motion.div>
           </div>
-        </div>
-      </div>
+        )}
+      </AnimatePresence>
 
       {/* ======================================================== */}
       {/* DRAMATIC STARTERS ROULETTE OVERLAY (CS:GO / CASINO STYLE) */}
