@@ -5,12 +5,26 @@ export interface LotteryFilters {
   type1?: string;
   type2?: string;
   generation?: number;
+  generations?: number[];
+  splitGenerationsEqually?: boolean;
   allowLegendary?: boolean;
   allowMythical?: boolean;
   rarity?: 'all' | 'normal' | 'legendary' | 'mythical';
   evolution?: 'all' | 'base' | 'evolved' | '1' | '2' | '3';
   uniqueTypes?: boolean;
   uniqueEvolutions?: boolean;
+}
+
+export function getPokemonGeneration(id: number): number {
+  if (id <= 151) return 1;
+  if (id <= 251) return 2;
+  if (id <= 386) return 3;
+  if (id <= 493) return 4;
+  if (id <= 649) return 5;
+  if (id <= 721) return 6;
+  if (id <= 809) return 7;
+  if (id <= 905) return 8;
+  return 9;
 }
 
 export const LEGENDARY_IDS = [
@@ -95,12 +109,25 @@ export async function drawPokemon(
       });
     }
 
-    if (filters.generation && filters.generation > 0) {
-      const genData = await pokeApi.get<any>(`/generation/${filters.generation}`);
-      genIds = genData.pokemon_species.map((s: any) => {
-        const urlParts = s.url.split('/');
-        return parseInt(urlParts[urlParts.length - 2], 10);
-      });
+    const selectedGens = (filters.generations && filters.generations.length > 0)
+      ? filters.generations
+      : (filters.generation && filters.generation > 0 ? [filters.generation] : []);
+
+    if (selectedGens.length > 0) {
+      const genResults = await Promise.all(
+        selectedGens.map(g => pokeApi.get<any>(`/generation/${g}`))
+      );
+      const combined = new Set<number>();
+      for (const genData of genResults) {
+        if (genData?.pokemon_species) {
+          for (const s of genData.pokemon_species) {
+            const urlParts = s.url.split('/');
+            const id = parseInt(urlParts[urlParts.length - 2], 10);
+            if (!isNaN(id)) combined.add(id);
+          }
+        }
+      }
+      genIds = Array.from(combined);
     }
 
     // Start with all if nothing is filtered

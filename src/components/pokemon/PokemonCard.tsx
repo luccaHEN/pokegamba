@@ -4,6 +4,7 @@ import type { Pokemon } from '../../types/pokemon';
 import { PokemonTypeBadge } from './PokemonTypeBadge';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { cn } from '../../utils/cn';
+import { getPokemonGeneration } from '../../utils/lottery';
 import raticateImg from '../../assets/raticate.png';
 
 export function PokemonCard({ 
@@ -81,9 +82,19 @@ export function PokemonCard({
         </button>
       )}
 
-      <span className={cn("absolute font-bold text-cobble-400", compact ? "top-2 left-2 text-[10px]" : "top-3 left-3 text-xs")}>
-        #{String(pokemon.id).padStart(4, '0')}
-      </span>
+      <div className={cn("absolute flex items-center gap-1.5 z-10", compact ? "top-2 left-2" : "top-3 left-3")}>
+        <span className={cn("font-bold text-cobble-400", compact ? "text-[10px]" : "text-xs")}>
+          #{String(pokemon.id).padStart(4, '0')}
+        </span>
+        {!isShadow && (
+          <span className={cn(
+            "font-black rounded px-1.5 py-0.5 border text-emerald-300 bg-emerald-950/70 border-emerald-500/40 tracking-tight",
+            compact ? "text-[8px] leading-none" : "text-[9px] leading-tight"
+          )}>
+            Gen {getPokemonGeneration(pokemon.id)}
+          </span>
+        )}
+      </div>
 
       <div className={cn("flex items-center justify-center relative", compact ? "w-20 h-20 sm:w-24 sm:h-24 mt-2 mb-1" : "w-32 h-32 mt-4 mb-2")}>
         {isShadow && <span className={cn("absolute font-black text-yellow-400 z-20 animate-pulse drop-shadow-md", compact ? "text-3xl" : "text-5xl")}>?</span>}

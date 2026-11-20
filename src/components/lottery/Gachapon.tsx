@@ -78,7 +78,7 @@ export function Gachapon({ isDrawing, queue = [] }: { isDrawing: boolean, queue?
             <motion.div 
               className="w-16 h-4 bg-gradient-to-b from-slate-500 to-slate-700 rounded-full shadow-lg"
               animate={isDrawing ? { rotate: 360 } : { rotate: 0 }}
-              transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 0.35, repeat: Infinity, ease: "linear" }}
             />
             <div className="absolute top-2 right-3 w-2 h-6 bg-slate-900 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8)]"></div>
           </div>
@@ -98,8 +98,8 @@ export function Gachapon({ isDrawing, queue = [] }: { isDrawing: boolean, queue?
                       initial={{ y: -100, opacity: 0 }}
                       animate={{ y: [ -100, 0, -10, 0 ], opacity: 1 }}
                       transition={{ 
-                        delay: 1.5 + (i * 0.3),
-                        duration: 0.5,
+                        delay: 0.15 + (i * 0.12),
+                        duration: 0.35,
                         times: [0, 0.7, 0.85, 1] 
                       }}
                       className={cn("w-8 h-8 rounded-full shadow-[inset_-3px_-3px_6px_rgba(0,0,0,0.5),inset_3px_3px_6px_rgba(255,255,255,0.8),0_5px_10px_rgba(0,0,0,0.8)] z-30 relative overflow-hidden", colors.drop)}

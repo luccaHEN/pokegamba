@@ -32,7 +32,7 @@ export function CardReveal({
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const openTimer = setTimeout(() => setIsOpen(true), 800 + idx * 200);
+    const openTimer = setTimeout(() => setIsOpen(true), 250 + idx * 80);
     return () => {
       clearTimeout(openTimer);
     };
@@ -47,12 +47,12 @@ export function CardReveal({
         <motion.div
           initial={{ scale: 0, y: 300, rotate: -720 }}
           animate={{ scale: 1, y: 0, rotate: 0 }}
-          transition={{ type: 'spring', damping: 15, delay: idx * 0.1 }}
+          transition={{ type: 'spring', damping: 15, delay: idx * 0.04 }}
           className={cn("relative flex flex-col", compact ? "w-20 h-20" : "w-32 h-32")}
         >
           <motion.div 
             animate={isOpen ? { y: compact ? -30 : -50, opacity: 0, rotate: -20, scale: 1.2 } : { y: 0, opacity: 1, rotate: 0, scale: 1 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
             className={cn("rounded-t-full border-4 border-b-2 border-slate-800 shadow-[inset_-5px_5px_15px_rgba(255,255,255,0.4)] relative overflow-hidden", compact ? "w-20 h-10" : "w-32 h-16", colors.top)}
           >
             <div className={cn("absolute bottom-[-6px] left-1/2 -translate-x-1/2 bg-white border-2 border-slate-800 rounded-full z-10", compact ? "w-5 h-5" : "w-8 h-8")} />
@@ -60,7 +60,7 @@ export function CardReveal({
 
           <motion.div 
             animate={isOpen ? { y: compact ? 30 : 50, opacity: 0, rotate: 20, scale: 1.2 } : { y: 0, opacity: 1, rotate: 0, scale: 1 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
             className={cn("rounded-b-full border-4 border-t-2 border-slate-800 shadow-[inset_-5px_-5px_15px_rgba(0,0,0,0.2)] relative overflow-hidden", compact ? "w-20 h-10" : "w-32 h-16", colors.bottom)}
           >
             <div className={cn("absolute top-[-14px] left-1/2 -translate-x-1/2 bg-transparent border-2 border-slate-800 rounded-full z-10", compact ? "w-5 h-5" : "w-8 h-8")} />

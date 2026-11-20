@@ -2,11 +2,11 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Dices, Filter, Settings2, Sparkles, RefreshCw, History as HistoryIcon, 
-  Users, Plus, X, Share2, Check, Zap, Shuffle, Image as ImageIcon, Crown, AlertTriangle, BookOpen, Volume2, VolumeX
+  Users, Plus, X, Share2, Check, Zap, Shuffle, Image as ImageIcon, Crown, AlertTriangle, BookOpen, Volume2, VolumeX, Scale
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../components/ui/Button';
-import { drawPokemon, getEvolutionFamilyIds } from '../utils/lottery';
+import { drawPokemon, getEvolutionFamilyIds, getPokemonGeneration } from '../utils/lottery';
 import type { LotteryFilters } from '../utils/lottery';
 import type { Pokemon, LotteryHistorySession } from '../types/pokemon';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -27,18 +27,6 @@ import { playStarterSound, stopStarterSound, isStarterVoiceMuted, setStarterVoic
 import raticateImg from '../assets/raticate.png';
 
 const TYPES = ['all', 'normal', 'fire', 'water', 'grass', 'electric', 'ice', 'fighting', 'poison', 'ground', 'flying', 'psychic', 'bug', 'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy'];
-const GENS = [
-  { id: 0, name: 'Todas' },
-  { id: 1, name: 'Geração 1' },
-  { id: 2, name: 'Geração 2' },
-  { id: 3, name: 'Geração 3' },
-  { id: 4, name: 'Geração 4' },
-  { id: 5, name: 'Geração 5' },
-  { id: 6, name: 'Geração 6' },
-  { id: 7, name: 'Geração 7' },
-  { id: 8, name: 'Geração 8' },
-  { id: 9, name: 'Geração 9' },
-];
 
 export default function Lottery() {
   const navigate = useNavigate();
@@ -126,6 +114,8 @@ export default function Lottery() {
     type1: 'all', 
     type2: 'all', 
     generation: 0,
+    generations: [],
+    splitGenerationsEqually: false,
     allowLegendary: true,
     allowMythical: true,
     rarity: 'all',
@@ -148,7 +138,7 @@ export default function Lottery() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingQueue, setDrawingQueue] = useState<Pokemon[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [lastDrawConfig, setLastDrawConfig] = useState<{ qty: number, filters: LotteryFilters } | null>(null);
+  const [lastDrawConfig, setLastDrawConfig] = useLocalStorage<{ qty: number, filters: LotteryFilters } | null>('cobblemon-last-draw-config', null);
   const [rerollingIndex, setRerollingIndex] = useState<number | null>(null);
 
   // ==================== HANDLERS: PARTICIPANTS ====================
@@ -178,12 +168,62 @@ export default function Lottery() {
   };
 
   // ==================== HANDLERS: FILTERS ====================
+  const selectedGenerations = useMemo(() => {
+    if (filters.generations && filters.generations.length > 0) {
+      return filters.generations;
+    }
+    if (filters.generation && filters.generation > 0) {
+      return [filters.generation];
+    }
+    return [];
+  }, [filters.generations, filters.generation]);
+
+  const handleToggleGeneration = (genId: number) => {
+    setFilters(prev => {
+      const current = prev.generations && prev.generations.length > 0 
+        ? prev.generations 
+        : (prev.generation && prev.generation > 0 ? [prev.generation] : []);
+      
+      let nextGens: number[];
+      if (current.includes(genId)) {
+        nextGens = current.filter(id => id !== genId);
+      } else {
+        nextGens = [...current, genId].sort((a, b) => a - b);
+      }
+
+      return {
+        ...prev,
+        generation: nextGens.length === 1 ? nextGens[0] : 0,
+        generations: nextGens,
+        splitGenerationsEqually: nextGens.length >= 2 ? prev.splitGenerationsEqually : false,
+      };
+    });
+  };
+
+  const handleSelectAllGenerations = () => {
+    setFilters(prev => ({
+      ...prev,
+      generation: 0,
+      generations: [],
+      splitGenerationsEqually: false,
+    }));
+  };
+
+  const handleToggleSplitGenerations = () => {
+    setFilters(prev => ({
+      ...prev,
+      splitGenerationsEqually: !prev.splitGenerationsEqually,
+    }));
+  };
+
   const resetFilters = () => {
     setQuantity(1);
     setFilters({
       type1: 'all',
       type2: 'all',
       generation: 0,
+      generations: [],
+      splitGenerationsEqually: false,
       allowLegendary: true,
       allowMythical: true,
       rarity: 'all',
@@ -262,17 +302,62 @@ export default function Lottery() {
       const allowLegendary = activeFilters.allowLegendary ?? true;
       const allowMythical = activeFilters.allowMythical ?? true;
 
+      const selectedGens = (activeFilters.generations && activeFilters.generations.length > 0)
+        ? activeFilters.generations
+        : (activeFilters.generation && activeFilters.generation > 0 ? [activeFilters.generation] : []);
+
+      let targetGensPerSlot: (number | null)[] = [];
+      if (activeFilters.splitGenerationsEqually && selectedGens.length > 1) {
+        const countPerGen = Math.floor(activeQty / selectedGens.length);
+        const remainder = activeQty % selectedGens.length;
+        const shuffledGens = [...selectedGens].sort(() => Math.random() - 0.5);
+        const allocations: number[] = [];
+
+        selectedGens.forEach(g => {
+          let count = countPerGen;
+          if (shuffledGens.slice(0, remainder).includes(g)) {
+            count++;
+          }
+          for (let c = 0; c < count; c++) {
+            allocations.push(g);
+          }
+        });
+
+        targetGensPerSlot = allocations.sort(() => Math.random() - 0.5);
+      }
+
       for (let i = 0; i < activeQty; i++) {
         try {
           const excludeTypes = activeFilters.uniqueTypes ? drawnTypes : [];
-          const p = await drawPokemon(
-            activeFilters, 
-            allowLegendary, 
-            allowMythical, 
-            drawnIds, 
-            excludeTypes,
-            drawnEvolutionChainUrls
-          );
+          const slotGen = targetGensPerSlot[i] || null;
+          const currentSlotFilters: LotteryFilters = slotGen
+            ? { ...activeFilters, generation: slotGen, generations: [slotGen] }
+            : activeFilters;
+
+          let p: Pokemon;
+          try {
+            p = await drawPokemon(
+              currentSlotFilters, 
+              allowLegendary, 
+              allowMythical, 
+              drawnIds, 
+              excludeTypes,
+              drawnEvolutionChainUrls
+            );
+          } catch (slotErr) {
+            if (slotGen) {
+              p = await drawPokemon(
+                activeFilters, 
+                allowLegendary, 
+                allowMythical, 
+                drawnIds, 
+                excludeTypes,
+                drawnEvolutionChainUrls
+              );
+            } else {
+              throw slotErr;
+            }
+          }
           drawnPokemon.push(p);
           drawnIds.push(p.id);
 
@@ -309,14 +394,19 @@ export default function Lottery() {
       }
       
       setDrawingQueue(drawnPokemon);
-      await new Promise(resolve => setTimeout(resolve, 3500));
+      await new Promise(resolve => setTimeout(resolve, 900));
       
       setResults(drawnPokemon);
       
+      let gensLabel = '';
+      if (selectedGens.length > 0) {
+        gensLabel = `Gen${selectedGens.length > 1 ? 's' : ''}: ${[...selectedGens].sort((a,b)=>a-b).join(', ')}${activeFilters.splitGenerationsEqually && selectedGens.length > 1 ? ' (Divididos igualmente)' : ''}`;
+      }
+
       const sessionFilters = [
         activeFilters.type1 && activeFilters.type1 !== 'all' ? `Tipo 1: ${activeFilters.type1}` : '',
         activeFilters.type2 && activeFilters.type2 !== 'all' ? (activeFilters.type2 === 'none' ? 'Tipo 2: Nenhum' : `Tipo 2: ${activeFilters.type2}`) : '',
-        activeFilters.generation ? `Gen: ${activeFilters.generation}` : '',
+        gensLabel,
         activeFilters.rarity && activeFilters.rarity !== 'all' ? `Raridade: ${activeFilters.rarity}` : '',
         activeFilters.evolution && activeFilters.evolution !== 'all' ? `Evolução: ${activeFilters.evolution}` : '',
         activeFilters.uniqueTypes ? 'Sem tipos repetidos' : '',
@@ -695,8 +785,28 @@ export default function Lottery() {
           }
         }
 
+        // Respeitar estritamente as regras de geração daquele sorteio específico
+        const targetGen = getPokemonGeneration(targetPokemon.id);
+        let rerollGens: number[] | undefined;
+
+        if (activeFilters.splitGenerationsEqually && activeFilters.generations && activeFilters.generations.length > 1) {
+          // Se o sorteio foi dividido igualmente entre gerações, o substituto DEVE vir estritamente da mesma geração do Pokémon sorteado!
+          rerollGens = [targetGen];
+        } else if (activeFilters.generations && activeFilters.generations.length > 0) {
+          // Se o sorteio foi de gerações específicas (ex: apenas Gen 1, ou Gen 3 e Gen 7)
+          rerollGens = activeFilters.generations;
+        } else if (activeFilters.generation && activeFilters.generation > 0) {
+          rerollGens = [activeFilters.generation];
+        }
+
+        const rerollFilters: LotteryFilters = {
+          ...activeFilters,
+          generation: rerollGens && rerollGens.length === 1 ? rerollGens[0] : 0,
+          generations: rerollGens,
+        };
+
         const newPokemon = await drawPokemon(
-          activeFilters,
+          rerollFilters,
           allowLegendary,
           allowMythical,
           excludeIds,
@@ -803,25 +913,7 @@ export default function Lottery() {
         )}
       </AnimatePresence>
 
-      {/* TOP BAR ACTION */}
-      <div className="flex justify-end pb-1">
-        <button
-          type="button"
-          onClick={() => setIsHistoryDrawerOpen(true)}
-          className="px-4 py-2 rounded-xl bg-cobble-800/90 hover:bg-cobble-700 text-cobble-200 hover:text-white border border-cobble-700 hover:border-yellow-500/50 text-xs font-bold flex items-center gap-2 transition-all shadow-md group cursor-pointer"
-          title="Abrir histórico da sessão"
-        >
-          <HistoryIcon className="w-4 h-4 text-yellow-400 group-hover:rotate-[-20deg] transition-transform" />
-          <span>Histórico da Sessão</span>
-          {history.length > 0 && (
-            <span className="bg-yellow-400 text-yellow-950 px-2 py-0.5 rounded-full font-black text-[10px]">
-              {history.length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10 items-stretch">
         
         {/* LEFT COLUMN: Clean Control Panel */}
         <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
@@ -1082,23 +1174,96 @@ export default function Lottery() {
                   </div>
                 </div>
 
-                {/* Geração & Raridade */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-cobble-900/80 p-2 rounded-xl border border-cobble-700">
-                    <h3 className="font-bold text-[11px] text-slate-300 mb-1 flex items-center">
-                      <Filter className="w-3 h-3 mr-1 text-slate-400" /> Geração
+                {/* Seção de Gerações com Seleção Múltipla & Divisão Equilibrada */}
+                <div className="bg-cobble-900/80 p-2.5 rounded-xl border border-cobble-700 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-[11px] text-slate-300 flex items-center">
+                      <Filter className="w-3 h-3 mr-1 text-emerald-400" /> Gerações Permitidas
                     </h3>
-                    <select
-                      value={filters.generation}
-                      onChange={(e) => updateFilter('generation', parseInt(e.target.value))}
-                      className="w-full bg-cobble-800 border border-cobble-700 p-1.5 text-white outline-none font-bold text-xs cursor-pointer rounded-lg"
-                    >
-                      {GENS.map(g => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </select>
+                    <span className="text-[10px] text-cobble-400 font-semibold">
+                      {selectedGenerations.length === 0
+                        ? 'Todas (Gen 1-9)'
+                        : `${selectedGenerations.length} selecionada${selectedGenerations.length > 1 ? 's' : ''}`}
+                    </span>
                   </div>
 
+                  {/* Botões das Gerações */}
+                  <div className="grid grid-cols-5 gap-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllGenerations}
+                      className={cn(
+                        "py-1.5 px-1 rounded-lg border font-bold transition-all text-center",
+                        selectedGenerations.length === 0
+                          ? "bg-emerald-600/30 text-emerald-300 border-emerald-500 shadow-sm shadow-emerald-950"
+                          : "bg-cobble-800 text-cobble-400 border-cobble-700 hover:text-white hover:bg-cobble-700/60"
+                      )}
+                    >
+                      Todas
+                    </button>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((genNum) => {
+                      const isSelected = selectedGenerations.includes(genNum);
+                      return (
+                        <button
+                          key={genNum}
+                          type="button"
+                          onClick={() => handleToggleGeneration(genNum)}
+                          className={cn(
+                            "py-1.5 px-1 rounded-lg border font-bold transition-all text-center",
+                            isSelected
+                              ? "bg-emerald-500/25 text-emerald-300 border-emerald-400 shadow-sm"
+                              : "bg-cobble-800 text-cobble-300 border-cobble-700 hover:text-white hover:bg-cobble-700/60"
+                          )}
+                        >
+                          Gen {genNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Botão / Toggle para Divisão Equilibrada entre as Gerações */}
+                  {selectedGenerations.length >= 2 && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      onClick={handleToggleSplitGenerations}
+                      className={cn(
+                        "mt-1.5 p-2 rounded-lg border flex items-center justify-between gap-2 cursor-pointer transition-all select-none",
+                        filters.splitGenerationsEqually
+                          ? "bg-emerald-950/60 border-emerald-500/60 text-emerald-200"
+                          : "bg-cobble-800/80 border-cobble-700/80 text-cobble-300 hover:border-cobble-600"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Scale className={cn("w-4 h-4 shrink-0", filters.splitGenerationsEqually ? "text-emerald-400" : "text-cobble-400")} />
+                        <div>
+                          <p className="text-xs font-bold leading-tight">
+                            Dividir igualmente entre as gerações
+                          </p>
+                          <p className="text-[10px] text-cobble-400 leading-tight mt-0.5">
+                            {filters.splitGenerationsEqually
+                              ? `Distribui os ${quantity} Pokémon entre as ${selectedGenerations.length} gerações selecionadas`
+                              : 'Mistura aleatória entre as gerações selecionadas'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className={cn(
+                        "w-9 h-5 rounded-full transition-colors relative flex items-center px-0.5 shrink-0",
+                        filters.splitGenerationsEqually ? "bg-emerald-500" : "bg-cobble-700"
+                      )}>
+                        <motion.div
+                          className="w-4 h-4 rounded-full bg-white shadow-sm"
+                          animate={{ x: filters.splitGenerationsEqually ? 16 : 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* Raridade & Evolução */}
+                <div className="grid grid-cols-2 gap-2">
                   <div className="bg-cobble-900/80 p-2 rounded-xl border border-cobble-700">
                     <h3 className="font-bold text-[11px] text-slate-300 mb-1 flex items-center">
                       <Sparkles className="w-3 h-3 mr-1 text-purple-400" /> Raridade
@@ -1114,11 +1279,8 @@ export default function Lottery() {
                       <option value="mythical" className="text-pink-400 font-bold">Míticos</option>
                     </select>
                   </div>
-                </div>
 
-                {/* Evolução & Botão Limpar */}
-                <div className="flex gap-2 items-center">
-                  <div className={cn("bg-cobble-900/80 p-2 rounded-xl border flex-1", isEvolutionDisabled ? "border-cobble-800 opacity-60" : "border-cobble-700")}>
+                  <div className={cn("bg-cobble-900/80 p-2 rounded-xl border", isEvolutionDisabled ? "border-cobble-800 opacity-60" : "border-cobble-700")}>
                     <h3 className="font-bold text-[11px] text-slate-300 mb-1 flex items-center">
                       <Sparkles className={cn("w-3 h-3 mr-1", isEvolutionDisabled ? "text-cobble-600" : "text-green-400")} /> Evolução
                     </h3>
@@ -1135,19 +1297,22 @@ export default function Lottery() {
                       {!isEvolutionDisabled && <option value="evolved" className="text-blue-400 font-bold">Evoluídos</option>}
                     </select>
                   </div>
+                </div>
 
-                  {(filters.type1 !== 'all' || filters.type2 !== 'all' || filters.generation !== 0 || (filters.rarity && filters.rarity !== 'all') || (filters.evolution && filters.evolution !== 'all') || quantity > 1) && (
+                {/* Botão Limpar Filtros */}
+                {(filters.type1 !== 'all' || filters.type2 !== 'all' || selectedGenerations.length > 0 || (filters.rarity && filters.rarity !== 'all') || (filters.evolution && filters.evolution !== 'all') || quantity > 1) && (
+                  <div className="flex justify-end pt-1">
                     <Button
                       type="button"
                       onClick={resetFilters}
                       variant="secondary"
                       size="sm"
-                      className="self-end h-[38px] px-3 text-xs text-cobble-300 hover:text-white rounded-xl border border-cobble-700 hover:bg-cobble-800"
+                      className="h-[34px] px-3 text-xs text-cobble-300 hover:text-white rounded-xl border border-cobble-700 hover:bg-cobble-800"
                     >
-                      Limpar
+                      Limpar Filtros
                     </Button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1465,9 +1630,25 @@ export default function Lottery() {
         </div>
 
         {/* CENTER/STAGE COLUMN: Gachapon Machine OR Starters Draft Board */}
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col items-center justify-start bg-cobble-800/80 rounded-3xl border border-cobble-700/80 p-6 md:p-8 shadow-2xl relative min-h-[560px]">
+        <div className="lg:col-span-7 xl:col-span-8 flex flex-col items-center justify-start bg-cobble-800/80 rounded-3xl border border-cobble-700/80 p-6 md:p-8 shadow-2xl relative min-h-[580px] h-full">
+          {/* Botão de Histórico integrado no topo direito do card da máquina */}
+          <button
+            type="button"
+            onClick={() => setIsHistoryDrawerOpen(true)}
+            className="absolute top-4 right-4 md:top-5 md:right-5 px-3 py-1.5 rounded-xl bg-cobble-900/90 hover:bg-cobble-900 text-cobble-300 hover:text-white border border-cobble-700 hover:border-yellow-500/60 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer z-30 group"
+            title="Abrir histórico da sessão"
+          >
+            <HistoryIcon className="w-3.5 h-3.5 text-yellow-400 group-hover:rotate-[-20deg] transition-transform" />
+            <span className="hidden sm:inline">Histórico</span>
+            {history.length > 0 && (
+              <span className="bg-yellow-400 text-yellow-950 px-1.5 py-0.2 rounded-full font-black text-[10px]">
+                {history.length}
+              </span>
+            )}
+          </button>
+
           {/* Active Mode & Target Trainer Pills */}
-          <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
+          <div className="mb-4 flex flex-wrap items-center justify-center gap-2 pr-16 sm:pr-0">
             <div className="px-3 py-1 bg-cobble-900/80 border border-cobble-700 rounded-full flex items-center gap-2 text-xs font-bold shadow-sm">
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
               <span className="text-cobble-300">Modo:</span>
