@@ -19,8 +19,9 @@ import { CardReveal } from '../components/pokemon/CardReveal';
 import { PokemonTypeBadge, formatPokemonType } from '../components/pokemon/PokemonTypeBadge';
 import { StartersDraftBoard } from '../components/lottery/StartersDraftBoard';
 import { StartersRoulette } from '../components/lottery/StartersRoulette';
+import { StarterShinyDraw } from '../components/lottery/StarterShinyDraw';
 import { TrainerWheelModal } from '../components/lottery/TrainerWheelModal';
-import { STARTER_POKEMON_DEFS, formatStartersDraftForDiscord } from '../utils/starters';
+import { STARTER_POKEMON_DEFS, formatStartersDraftForDiscord, getStarterSpriteUrl } from '../utils/starters';
 import type { StarterPokemonDef } from '../utils/starters';
 import { pokeApi } from '../services/pokeapi';
 import { playStarterSound, stopStarterSound, isStarterVoiceMuted, setStarterVoiceMuted } from '../utils/audio';
@@ -36,6 +37,7 @@ export default function Lottery() {
 
   // Tab 4: Starters Draft State (27 Starters with 0 repeats rule)
   const [claimedStarters, setClaimedStarters] = useLocalStorage<Record<number, string>>('cobblemon-claimed-starters', {});
+  const [claimedShinyStarters, setClaimedShinyStarters] = useLocalStorage<Record<number, boolean>>('cobblemon-claimed-shiny-starters', {});
   const [startersCenterView, setStartersCenterView] = useState<'board' | 'gachapon'>('board');
   const [copiedStartersDiscord, setCopiedStartersDiscord] = useState(false);
   const [showResetStartersConfirm, setShowResetStartersConfirm] = useState(false);
@@ -46,6 +48,10 @@ export default function Lottery() {
   const [activeSpinTrainer, setActiveSpinTrainer] = useState<string>('');
   const [activeSpinFinished, setActiveSpinFinished] = useState(false);
   const [activeSpinPokemon, setActiveSpinPokemon] = useState<Pokemon | null>(null);
+  const [activeSpinShinyStage, setActiveSpinShinyStage] = useState<'roulette' | 'shiny_draw' | 'showcase'>('roulette');
+  const [activeSpinIsShiny, setActiveSpinIsShiny] = useState<boolean>(false);
+  const [copiedStarterDiscordImage, setCopiedStarterDiscordImage] = useState(false);
+  const [isGeneratingStarterCard, setIsGeneratingStarterCard] = useState(false);
 
   // Trainer Wheel Modal State (SpinTheWheel for Draft Order)
   const [isTrainerWheelOpen, setIsTrainerWheelOpen] = useState(false);
@@ -506,11 +512,23 @@ export default function Lottery() {
     setActiveSpinPokemon(null);
     setActiveSpinWinnerDef(winnerDef);
     setActiveSpinTrainer(recipient);
+    setActiveSpinShinyStage('roulette');
+    setActiveSpinIsShiny(false);
     setIsSpinningStarter(true);
   };
 
-  const handleStartersRouletteComplete = async () => {
+  const handleStartersRouletteComplete = () => {
     if (!activeSpinWinnerDef) return;
+    // Brief pause so player sees the chosen Pokémon on the roulette, then transition to 8-card shiny draw!
+    setTimeout(() => {
+      setActiveSpinShinyStage('shiny_draw');
+    }, 750);
+  };
+
+  const handleShinyDrawComplete = async (isShiny: boolean) => {
+    if (!activeSpinWinnerDef) return;
+    setActiveSpinIsShiny(isShiny);
+    setActiveSpinShinyStage('showcase');
     setActiveSpinFinished(true);
 
     // Play custom recorded friend audio for the winning starter
@@ -519,18 +537,27 @@ export default function Lottery() {
     try {
       // Fetch full Pokemon object from PokeAPI
       const p = await pokeApi.getPokemon(activeSpinWinnerDef.id);
+      p.isShiny = isShiny;
+      if (isShiny) {
+        const shinySprite = p.sprites.other?.['official-artwork']?.front_shiny || p.sprites.front_shiny || p.sprites.front_default;
+        p.sprites.front_default = shinySprite;
+      }
       setActiveSpinPokemon(p);
 
       // Claim starter for recipient in state and localStorage
       setClaimedStarters(prev => ({ ...prev, [activeSpinWinnerDef.id]: activeSpinTrainer }));
+      if (isShiny) {
+        setClaimedShinyStarters(prev => ({ ...prev, [activeSpinWinnerDef.id]: true }));
+      }
 
       // Add to history right away
+      const shinyTag = isShiny ? ' ✨ [SHINY!]' : '';
       const newHistorySession: LotteryHistorySession = {
         id: crypto.randomUUID(),
         pokemons: [p],
         date: new Date().toISOString(),
         quantityRequested: 1,
-        filters: [`🌟 Draft Iniciais: ${activeSpinWinnerDef.name} (${activeSpinWinnerDef.generationName})`],
+        filters: [`🌟 Draft Iniciais: ${activeSpinWinnerDef.name}${shinyTag} (${activeSpinWinnerDef.generationName})`],
         participants: [activeSpinTrainer]
       };
       setHistory([newHistorySession, ...history]);
@@ -544,26 +571,46 @@ export default function Lottery() {
   const handleOpenWinnerDetails = () => {
     stopStarterSound();
     const starterId = activeSpinWinnerDef?.id || activeSpinPokemon?.id;
+    const isShiny = activeSpinIsShiny;
     setIsSpinningStarter(false);
     setActiveSpinFinished(false);
     setActiveSpinWinnerDef(null);
     setActiveSpinPokemon(null);
+    setActiveSpinShinyStage('roulette');
+    setActiveSpinIsShiny(false);
     if (starterId) {
-      navigate(`/pokemon/${starterId}`);
+      navigate(`/pokemon/${starterId}${isShiny ? '?shiny=true' : ''}`);
     }
   };
 
-  const handleOpenLotteryCard = () => {
-    stopStarterSound();
-    if (activeSpinPokemon) {
-      setResults([activeSpinPokemon]);
-      setCurrentSessionParticipants([activeSpinTrainer]);
-      setCurrentSessionFilters([`🌟 Draft dos 27 Iniciais (${activeSpinWinnerDef?.generationName})`]);
+  const handleCopyStarterDiscordCard = async () => {
+    if (isGeneratingStarterCard || !activeSpinWinnerDef) return;
+    setIsGeneratingStarterCard(true);
+    try {
+      let p = activeSpinPokemon;
+      if (!p) {
+        p = await pokeApi.getPokemon(activeSpinWinnerDef.id);
+        p.isShiny = activeSpinIsShiny;
+        if (activeSpinIsShiny) {
+          const shinySprite = p.sprites.other?.['official-artwork']?.front_shiny || p.sprites.front_shiny || p.sprites.front_default;
+          p.sprites.front_default = shinySprite;
+        }
+      }
+      const blob = await generateLotteryCardImage([p], [activeSpinTrainer]);
+      const copied = await copyImageBlobToClipboard(blob);
+      if (copied) {
+        setCopiedStarterDiscordImage(true);
+        setTimeout(() => setCopiedStarterDiscordImage(false), 2500);
+      } else {
+        downloadImageBlob(blob, `card-${activeSpinWinnerDef.name.toLowerCase()}-${Date.now()}.png`);
+        setCopiedStarterDiscordImage(true);
+        setTimeout(() => setCopiedStarterDiscordImage(false), 2500);
+      }
+    } catch (err) {
+      console.error('Erro ao gerar card do Discord:', err);
+    } finally {
+      setIsGeneratingStarterCard(false);
     }
-    setIsSpinningStarter(false);
-    setActiveSpinFinished(false);
-    setActiveSpinWinnerDef(null);
-    setActiveSpinPokemon(null);
   };
 
   const handleNextStarterSpin = () => {
@@ -581,6 +628,8 @@ export default function Lottery() {
     setActiveSpinFinished(false);
     setActiveSpinWinnerDef(null);
     setActiveSpinPokemon(null);
+    setActiveSpinShinyStage('roulette');
+    setActiveSpinIsShiny(false);
 
     setTimeout(() => {
       handleDrawStarter(nextTrainer || undefined);
@@ -593,6 +642,8 @@ export default function Lottery() {
     setActiveSpinFinished(false);
     setActiveSpinWinnerDef(null);
     setActiveSpinPokemon(null);
+    setActiveSpinShinyStage('roulette');
+    setActiveSpinIsShiny(false);
   };
 
   const handleDrawAllRemainingStarters = async () => {
@@ -666,11 +717,12 @@ export default function Lottery() {
 
   const confirmResetStarters = () => {
     setClaimedStarters({});
+    setClaimedShinyStarters({});
     setShowResetStartersConfirm(false);
   };
 
   const handleCopyStartersDiscord = async () => {
-    const text = formatStartersDraftForDiscord(claimedStarters);
+    const text = formatStartersDraftForDiscord(claimedStarters, claimedShinyStarters);
     const success = await copyToClipboard(text);
     if (success) {
       setCopiedStartersDiscord(true);
@@ -1707,6 +1759,7 @@ export default function Lottery() {
           {lotteryTab === 'starters' && startersCenterView === 'board' ? (
             <StartersDraftBoard 
               claimedStarters={claimedStarters} 
+              claimedShinyStarters={claimedShinyStarters}
               highlightedId={activeSpinWinnerDef?.id || null}
               onSelectStarter={(starter) => playStarterSound(starter.id)}
               className="w-full my-auto"
@@ -1854,7 +1907,10 @@ export default function Lottery() {
       {/* ======================================================== */}
       <AnimatePresence>
         {isSpinningStarter && activeSpinWinnerDef && (
-          <div className="fixed inset-0 z-[110] bg-black/95 backdrop-blur-md p-2 sm:p-4 flex flex-col items-center justify-center overflow-hidden">
+          <div className="fixed inset-0 z-[110] bg-cobble-950/95 backdrop-blur-xl p-2 sm:p-4 flex flex-col items-center justify-center overflow-y-auto custom-scrollbar">
+            {/* Ambient dark vignette & spotlight */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(45,54,79,0.3)_0%,_#0b0e17_80%)] pointer-events-none" />
+
             {/* Top Close Button (Absolute to save vertical height and avoid scrollbar) */}
             <button
               onClick={handleCloseRoulette}
@@ -1870,99 +1926,156 @@ export default function Lottery() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="w-full max-w-5xl my-auto flex flex-col items-center"
             >
-              {/* Header Box */}
-              <div className="text-center mb-2.5 space-y-1.5">
+              {/* Header Box (Hidden in showcase so only the card is spotlighted) */}
+              {activeSpinShinyStage !== 'showcase' && (
+                <div className="text-center mb-2.5 space-y-1.5">
+                  <h2 className="pt-2 text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-wider drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                    {activeSpinShinyStage === 'shiny_draw' ? (
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-500">
+                        
+                      </span>
+                    ) : (
+                      <span className="text-transparent bg-clip-text bg-gradient-to-b from-white to-cobble-300">
+                        ROLETA DOS INICIAIS
+                      </span>
+                    )}
+                  </h2>
 
-                <h2 className="pt-2 text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-wider drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
-                  {activeSpinFinished ? (
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-500 animate-pulse">
-                       TEMOS UM VENCEDOR!
+                  <div className="inline-flex items-center justify-center gap-2 px-3.5 py-1 rounded-xl bg-cobble-900/90 border-2 border-yellow-500/60 shadow-lg backdrop-blur-sm">
+                    <span className="text-slate-200 text-xs sm:text-sm font-bold tracking-wide">Sorteando inicial para:</span>
+                    <span className="px-2.5 py-0.5 bg-yellow-400 text-slate-950 font-black rounded-md shadow flex items-center gap-1.5 text-xs sm:text-sm tracking-wide">
+                      <Crown className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
+                      {activeSpinTrainer}
                     </span>
-                  ) : (
-                    <span className="text-transparent bg-clip-text bg-gradient-to-b from-white to-cobble-300">
-                      ROLETA DOS INICIAIS
-                    </span>
-                  )}
-                </h2>
-
-                <div className="inline-flex items-center justify-center gap-2 px-3.5 py-1 rounded-xl bg-cobble-900/90 border-2 border-yellow-500/60 shadow-lg backdrop-blur-sm">
-                  <span className="text-slate-200 text-xs sm:text-sm font-bold tracking-wide">Sorteando inicial para:</span>
-                  <span className="px-2.5 py-0.5 bg-yellow-400 text-slate-950 font-black rounded-md shadow flex items-center gap-1.5 text-xs sm:text-sm tracking-wide">
-                    <Crown className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
-                    {activeSpinTrainer}
-                  </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* The Big Roulette */}
-              <div className="w-full shadow-2xl relative">
-                <StartersRoulette
-                  isSpinning={isSpinningStarter}
-                  winner={activeSpinWinnerDef}
-                  availableStarters={STARTER_POKEMON_DEFS.filter(s => !claimedStarters[s.id])}
-                  onSpinComplete={handleStartersRouletteComplete}
-                  className="w-full"
-                />
-              </div>
+              {/* Stage 1: The Big Roulette */}
+              {activeSpinShinyStage === 'roulette' && (
+                <div className="w-full shadow-2xl relative">
+                  <StartersRoulette
+                    isSpinning={isSpinningStarter}
+                    winner={activeSpinWinnerDef}
+                    availableStarters={STARTER_POKEMON_DEFS.filter(s => !claimedStarters[s.id])}
+                    onSpinComplete={handleStartersRouletteComplete}
+                    className="w-full"
+                  />
+                </div>
+              )}
 
-              {/* Tension / Status Subtitle OR Winner Showcase */}
+              {/* Stage 2: 8-Card Shiny Draw Mini-game */}
+              {activeSpinShinyStage === 'shiny_draw' && activeSpinWinnerDef && (
+                <div className="w-full shadow-2xl relative bg-cobble-950/80 border-2 border-yellow-500/50 rounded-2xl p-4 md:p-6 backdrop-blur-md">
+                  <StarterShinyDraw
+                    starter={activeSpinWinnerDef}
+                    trainer={activeSpinTrainer}
+                    onComplete={handleShinyDrawComplete}
+                  />
+                </div>
+              )}
+
+              {/* Stage 3: Tension / Status Subtitle OR Winner Showcase */}
               <div className="mt-5 text-center flex flex-col items-center w-full">
-                {activeSpinFinished ? (
+                {activeSpinShinyStage === 'showcase' && activeSpinFinished && activeSpinWinnerDef ? (
                   <motion.div
-                    initial={{ scale: 0.85, opacity: 0, y: 15 }}
+                    initial={{ scale: 0.9, opacity: 0, y: 15 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     transition={{ type: 'spring', damping: 20 }}
-                    className="w-full max-w-xl bg-cobble-900 border-4 border-yellow-400 rounded-2xl p-5 shadow-[0_0_50px_rgba(250,204,21,0.4)] flex flex-col items-center relative overflow-hidden"
+                    className={cn(
+                      "w-full max-w-md bg-gradient-to-b from-cobble-900 via-cobble-900 to-cobble-950 border-2 rounded-3xl p-5 sm:p-6 flex flex-col items-center relative overflow-hidden select-none",
+                      activeSpinIsShiny 
+                        ? "border-yellow-400 shadow-[0_0_60px_rgba(250,204,21,0.45)] ring-2 ring-yellow-400/40" 
+                        : "border-cobble-700/80 shadow-[0_0_50px_rgba(0,0,0,0.6)]"
+                    )}
                   >
-                    {/* Radial gold glow */}
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-yellow-500/20 via-transparent to-transparent pointer-events-none" />
+                    {/* Radial glow background */}
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-yellow-500/15 via-transparent to-transparent pointer-events-none" />
 
-                    {/* Top Tag */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-full mb-3 shadow">
-                      <span>👑</span> INICIAL SORTEADO COM SUCESSO!
+                    {/* Top Bar inside Card: Dex ID, Shiny Badge, Trainer Pill */}
+                    <div className="w-full flex items-center justify-between gap-2 mb-3 pb-3 border-b border-cobble-800/80 z-10">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-black text-cobble-400 bg-cobble-950/80 px-2.5 py-1 rounded-md border border-cobble-800 shadow-inner">
+                          #{String(activeSpinWinnerDef.id).padStart(3, '0')}
+                        </span>
+                        {activeSpinIsShiny && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-gradient-to-r from-yellow-400 to-amber-500 text-cobble-950 shadow-sm animate-pulse">
+                            <Sparkles className="w-3.5 h-3.5 fill-cobble-950" />
+                            SHINY
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cobble-950/80 border border-yellow-500/40 text-yellow-300 text-xs font-black shadow-sm">
+                        <Crown className="w-3.5 h-3.5 text-yellow-400" />
+                        <span className="truncate max-w-[140px]">{activeSpinTrainer}</span>
+                      </div>
                     </div>
 
-                    {/* Big Sprite with glowing aura */}
-                    <div className="relative mb-2 flex items-center justify-center">
-                      <div className="absolute w-28 h-28 rounded-full bg-yellow-400/25 blur-xl animate-pulse" />
-                      <img
-                        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${activeSpinWinnerDef.id}.png`}
-                        alt={activeSpinWinnerDef.name}
-                        className="w-28 h-28 object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.8)] relative z-10 animate-bounce"
-                        style={{ animationDuration: '2.5s' }}
-                      />
+                    {/* 3D Floating Pedestal & Sprite */}
+                    <div className="relative my-2 sm:my-3 flex flex-col items-center justify-center z-10">
+                      <div className={cn(
+                        "absolute w-36 h-36 rounded-full blur-2xl pointer-events-none",
+                        activeSpinIsShiny ? "bg-yellow-400/30 scale-125" : "bg-cobble-600/20"
+                      )} />
+
+                      <motion.div
+                        animate={{ y: [-4, 6, -4] }}
+                        transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                        className="relative z-10 flex items-center justify-center"
+                      >
+                        <img
+                          src={getStarterSpriteUrl(activeSpinWinnerDef.id, activeSpinIsShiny)}
+                          alt={activeSpinWinnerDef.name}
+                          className={cn(
+                            "w-36 h-36 sm:w-44 sm:h-44 object-contain transition-all",
+                            activeSpinIsShiny 
+                              ? "filter drop-shadow-[0_0_22px_rgba(250,204,21,0.85)]" 
+                              : "filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]"
+                          )}
+                        />
+                      </motion.div>
+
+                      {/* Pedestal disk under the Pokémon */}
+                      <div className="w-44 sm:w-52 h-7 -mt-3 rounded-[100%] bg-gradient-to-r from-transparent via-cobble-600/30 to-transparent border border-cobble-700/50 shadow-lg flex items-center justify-center">
+                        <div className="w-32 sm:w-40 h-4 rounded-[100%] bg-cobble-950/90 border border-cobble-700/30" />
+                      </div>
                     </div>
 
-                    {/* Pokémon Name & Type */}
-                    <h3 className="text-3xl sm:text-4xl font-black text-white tracking-wide uppercase drop-shadow-md">
-                      {activeSpinWinnerDef.name}
-                    </h3>
+                    {/* Pokémon Name & Details */}
+                    <div className="text-center z-10 mb-2">
+                      <h3 className="text-2xl sm:text-3xl font-black text-white tracking-wide uppercase drop-shadow flex items-center justify-center gap-2">
+                        <span>{activeSpinWinnerDef.name}</span>
+                        {activeSpinIsShiny && <span className="text-yellow-400 text-xl">✨</span>}
+                      </h3>
 
-                    <div className="flex items-center gap-2 mt-1.5 mb-3 flex-wrap justify-center">
-                      <span className={cn(
-                        "px-3 py-1 rounded-md text-xs font-black uppercase tracking-wider border shadow-sm",
-                        activeSpinWinnerDef.type === 'fire' ? "bg-orange-950/90 text-orange-300 border-orange-500" :
-                        activeSpinWinnerDef.type === 'water' ? "bg-cyan-950/90 text-cyan-300 border-cyan-500" :
-                        "bg-emerald-950/90 text-emerald-300 border-emerald-500"
-                      )}>
-                        {activeSpinWinnerDef.type === 'fire' ? '🔥 Tipo Fogo' : activeSpinWinnerDef.type === 'water' ? '💧 Tipo Água' : '🌿 Tipo Planta'}
-                      </span>
-                      <span className="text-xs text-yellow-300 font-black bg-black/60 px-2.5 py-1 rounded-md border border-cobble-700">
-                        #{String(activeSpinWinnerDef.id).padStart(3, '0')} • {activeSpinWinnerDef.generationName}
-                      </span>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
+                        <span className={cn(
+                          "px-3 py-1 rounded-md text-xs font-black uppercase tracking-wider border shadow-sm",
+                          activeSpinWinnerDef.type === 'fire' ? "bg-orange-950/90 text-orange-300 border-orange-500/60" :
+                          activeSpinWinnerDef.type === 'water' ? "bg-cyan-950/90 text-cyan-300 border-cyan-500/60" :
+                          "bg-emerald-950/90 text-emerald-300 border-emerald-500/60"
+                        )}>
+                          {activeSpinWinnerDef.type === 'fire' ? '🔥 Tipo Fogo' : activeSpinWinnerDef.type === 'water' ? '💧 Tipo Água' : '🌿 Tipo Planta'}
+                        </span>
+
+                        <span className="text-xs text-cobble-300 font-bold bg-cobble-950/80 px-2.5 py-1 rounded-md border border-cobble-800">
+                          {activeSpinWinnerDef.generationName}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Audio Play & Mute Controls */}
-                    <div className="flex items-center justify-center gap-2 mb-3">
+                    <div className="flex items-center justify-center gap-2 mb-3 z-10">
                       <button
                         type="button"
                         onClick={() => playStarterSound(activeSpinWinnerDef.id)}
                         disabled={voiceMuted}
                         className={cn(
-                          "inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black rounded-full border shadow-sm transition-all group",
+                          "inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full border shadow-sm transition-all group",
                           voiceMuted 
                             ? "bg-cobble-800 text-cobble-500 border-cobble-700 cursor-not-allowed opacity-60" 
-                            : "bg-yellow-500/20 hover:bg-yellow-500/30 active:scale-95 text-yellow-300 border-yellow-500/50 cursor-pointer"
+                            : "bg-cobble-800/90 hover:bg-cobble-800 active:scale-95 text-yellow-300 border-yellow-500/40 cursor-pointer"
                         )}
                         title={voiceMuted ? "Vozes mutadas no momento" : "Ouvir a voz deste inicial"}
                       >
@@ -1977,7 +2090,7 @@ export default function Lottery() {
                           "inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full border transition-colors cursor-pointer",
                           voiceMuted
                             ? "bg-red-950/70 text-red-300 border-red-500/50 hover:bg-red-900/70"
-                            : "bg-cobble-800 text-cobble-300 border-cobble-600 hover:text-white"
+                            : "bg-cobble-800/90 text-cobble-400 border-cobble-700 hover:text-white"
                         )}
                         title={voiceMuted ? "Desmutar vozes dos Pokémon" : "Mutar vozes dos Pokémon"}
                       >
@@ -1989,49 +2102,60 @@ export default function Lottery() {
                         ) : (
                           <>
                             <Volume2 className="w-3.5 h-3.5 text-cobble-400" />
-                            <span>Mutar Vozes</span>
+                            <span>Mutar</span>
                           </>
                         )}
                       </button>
                     </div>
 
-                    {/* Recipient Trainer Banner */}
-                    <div className="w-full bg-yellow-500/15 border-2 border-yellow-500/50 rounded-xl p-3 mb-4 text-sm font-bold text-yellow-300 flex items-center justify-center gap-2">
-                      <span className="text-lg">🎉</span>
-                      <span>
-                        Escolhido para: <span className="text-white font-black text-base uppercase underline decoration-yellow-400 decoration-2">{activeSpinTrainer}</span>!
-                      </span>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap items-center justify-center gap-2.5 w-full">
+                    {/* Action Buttons: 2x2 Equal Size Grid */}
+                    <div className="grid grid-cols-2 gap-2.5 w-full mt-3 z-10">
                       <Button
                         onClick={handleOpenWinnerDetails}
-                        className="flex-1 min-w-[200px] !bg-emerald-600 hover:!bg-emerald-500 text-white font-black text-sm py-2.5 border-2 border-emerald-700 shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                        className="w-full h-11 !bg-emerald-600 hover:!bg-emerald-500 text-white font-black text-xs sm:text-sm rounded-xl border border-emerald-500/50 shadow-md cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        <BookOpen className="w-4 h-4 text-emerald-200" />
-                        Ver Detalhes
+                        <BookOpen className="w-4 h-4 text-emerald-200 shrink-0" />
+                        <span className="truncate">Ver Detalhes</span>
                       </Button>
 
                       <Button
-                        onClick={handleOpenLotteryCard}
-                        variant="secondary"
-                        className="font-bold text-xs py-2.5 px-3 border border-cobble-600 hover:bg-cobble-700 text-yellow-300 cursor-pointer flex items-center gap-1.5 shadow"
-                        title="Ver card do sorteio com opções de exportar imagem e texto para o Discord"
+                        onClick={handleCopyStarterDiscordCard}
+                        disabled={isGeneratingStarterCard}
+                        className={cn(
+                          "w-full h-11 font-bold text-xs sm:text-sm rounded-xl border cursor-pointer flex items-center justify-center gap-1.5 transition-all shadow-md",
+                          copiedStarterDiscordImage
+                            ? "!bg-emerald-600 !border-emerald-500 text-white"
+                            : "!bg-cobble-800 hover:!bg-cobble-700 !border-cobble-600 text-yellow-300"
+                        )}
+                        title="Copiar imagem do card diretamente para a área de transferência"
                       >
-                        <Share2 className="w-3.5 h-3.5 text-yellow-400" />
-                        Card Discord
+                        {isGeneratingStarterCard ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 text-yellow-400 animate-spin shrink-0" />
+                            <span className="truncate">Gerando...</span>
+                          </>
+                        ) : copiedStarterDiscordImage ? (
+                          <>
+                            <Check className="w-4 h-4 text-emerald-300 shrink-0" />
+                            <span className="truncate">Card Copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Share2 className="w-4 h-4 text-yellow-400 shrink-0" />
+                            <span className="truncate">Card Discord</span>
+                          </>
+                        )}
                       </Button>
 
-                      {participants.length > 1 && participants.some(p => !Object.values(claimedStarters).includes(p)) && (() => {
+                      {(() => {
                         const nextPending = orderedDraftParticipants.find(p => !Object.values(claimedStarters).includes(p));
                         return (
                           <Button
                             onClick={handleNextStarterSpin}
-                            className="flex-1 min-w-[200px] !bg-blue-600 hover:!bg-blue-500 text-white font-black text-sm py-2.5 border-2 border-blue-700 shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                            className="w-full h-11 !bg-blue-600 hover:!bg-blue-500 text-white font-black text-xs sm:text-sm rounded-xl border border-blue-500/50 shadow-md cursor-pointer flex items-center justify-center gap-1.5"
                           >
-                            <RefreshCw className="w-4 h-4" />
-                            Girar p/ {nextPending ? nextPending : 'Próximo'}
+                            <RefreshCw className="w-4 h-4 text-blue-200 shrink-0" />
+                            <span className="truncate">{nextPending ? `Girar p/ ${nextPending}` : 'Girar Outro'}</span>
                           </Button>
                         );
                       })()}
@@ -2039,36 +2163,27 @@ export default function Lottery() {
                       <Button
                         onClick={handleCloseRoulette}
                         variant="secondary"
-                        className="font-bold text-xs py-2.5 px-4 border border-cobble-600 hover:bg-cobble-700 text-cobble-300 cursor-pointer"
+                        className="w-full h-11 font-bold text-xs sm:text-sm rounded-xl border !border-cobble-600 !bg-cobble-800 hover:!bg-cobble-700 text-cobble-300 cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        <X className="w-4 h-4 mr-1" />
-                        Fechar
+                        <X className="w-4 h-4 text-cobble-400 shrink-0" />
+                        <span className="truncate">Fechar</span>
                       </Button>
                     </div>
                   </motion.div>
-                ) : (
-                  <div className="space-y-1">
-                    <p className="text-sm sm:text-base text-yellow-300 font-bold tracking-wide animate-pulse">
-                      👀 Acompanhe a agulha central desacelerando entre os Pokémon...
-                    </p>
-                    <p className="text-xs text-cobble-400">
-                      Todos os participantes podem ver quais iniciais estão passando pela mira!
-                    </p>
-                  </div>
-                )}
-
-                {!activeSpinFinished && (
-                  <div className="mt-4">
-                    <button
-                      onClick={() => {
-                        handleStartersRouletteComplete();
-                      }}
-                      className="text-xs text-cobble-400 hover:text-white transition-colors underline cursor-pointer"
-                    >
-                      Pular animação
-                    </button>
-                  </div>
-                )}
+                ) : activeSpinShinyStage === 'roulette' ? (
+                  <>
+                    <div className="mt-4">
+                      <button
+                        onClick={() => {
+                          handleStartersRouletteComplete();
+                        }}
+                        className="text-xs text-cobble-400 hover:text-white transition-colors underline cursor-pointer"
+                      >
+                        Pular animação
+                      </button>
+                    </div>
+                  </>
+                ) : null}
               </div>
             </motion.div>
           </div>

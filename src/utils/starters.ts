@@ -53,11 +53,17 @@ export const STARTER_POKEMON_DEFS: StarterPokemonDef[] = [
   { id: 912, name: 'Quaxly', gen: 9, type: 'water', generationName: 'Gen 9 (Paldea)' },
 ];
 
-export function getStarterSpriteUrl(id: number): string {
+export function getStarterSpriteUrl(id: number, shiny?: boolean): string {
+  if (shiny) {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/${id}.png`;
+  }
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 }
 
-export function formatStartersDraftForDiscord(claimedStarters: Record<number, string>): string {
+export function formatStartersDraftForDiscord(
+  claimedStarters: Record<number, string>,
+  claimedShinyStarters?: Record<number, boolean>
+): string {
   const lines: string[] = [];
   lines.push('# 🌟 ` POKEGAMBA ` • DRAFT DOS 27 INICIAIS 🎲');
   lines.push('');
@@ -79,10 +85,12 @@ export function formatStartersDraftForDiscord(claimedStarters: Record<number, st
   claimedEntries.forEach(([idStr, trainer]) => {
     const id = Number(idStr);
     const def = STARTER_POKEMON_DEFS.find(s => s.id === id);
+    const isShiny = claimedShinyStarters?.[id];
     if (def) {
       const typeStr = typeEmojis[def.type] || def.type;
       const idFormatted = `#${String(def.id).padStart(4, '0')}`;
-      lines.push(`• **${trainer}** ➔ **${def.name}** (${idFormatted}) • ${typeStr} • _${def.generationName}_`);
+      const shinyTag = isShiny ? ' ✨ **SHINY!**' : '';
+      lines.push(`• **${trainer}** ➔ **${def.name}**${shinyTag} (${idFormatted}) • ${typeStr} • _${def.generationName}_`);
     }
   });
 

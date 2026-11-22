@@ -59,8 +59,9 @@ export function formatLotteryForDiscord(
         const typeNames = pokemon.types.map((t) => formatPokemonType(t.type.name).toUpperCase()).join(' / ');
         const idFormatted = `#${String(pokemon.id).padStart(4, '0')}`;
         const capitalizedName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+        const shinyTag = pokemon.isShiny ? ' ✨ **SHINY!**' : '';
 
-        lines.push(`> ${emoji} **${capitalizedName}** \`[${idFormatted}]\` • **[ ${typeNames} ]**`);
+        lines.push(`> ${emoji} **${capitalizedName}**${shinyTag} \`[${idFormatted}]\` • **[ ${typeNames} ]**`);
       });
       lines.push('');
     });
@@ -73,8 +74,9 @@ export function formatLotteryForDiscord(
         const typeNames = pokemon.types.map((t) => formatPokemonType(t.type.name).toUpperCase()).join(' / ');
         const idFormatted = `#${String(pokemon.id).padStart(4, '0')}`;
         const capitalizedName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+        const shinyTag = pokemon.isShiny ? ' ✨ **SHINY!**' : '';
 
-        lines.push(`> ${emoji} **${capitalizedName}** \`[${idFormatted}]\` • **[ ${typeNames} ]**`);
+        lines.push(`> ${emoji} **${capitalizedName}**${shinyTag} \`[${idFormatted}]\` • **[ ${typeNames} ]**`);
       });
       lines.push('');
     }
@@ -87,8 +89,9 @@ export function formatLotteryForDiscord(
       const typeNames = pokemon.types.map((t) => formatPokemonType(t.type.name).toUpperCase()).join(' / ');
       const idFormatted = `#${String(pokemon.id).padStart(4, '0')}`;
       const capitalizedName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+      const shinyTag = pokemon.isShiny ? ' ✨ **SHINY!**' : '';
 
-      lines.push(`> \`${idx + 1}.\` ${emoji} **${capitalizedName}** \`[${idFormatted}]\` • **[ ${typeNames} ]**`);
+      lines.push(`> \`${idx + 1}.\` ${emoji} **${capitalizedName}**${shinyTag} \`[${idFormatted}]\` • **[ ${typeNames} ]**`);
     });
     lines.push('');
   }

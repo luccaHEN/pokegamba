@@ -85,7 +85,7 @@ export async function generateLotteryCardImage(
   ctx.textAlign = 'center';
   ctx.fillStyle = '#facc15';
   ctx.font = '900 24px "Pixelify Sans", "Segoe UI", sans-serif';
-  ctx.fillText('🎲 POKEGAMBA • SORTEIO COBBLEMON 🎰', width / 2, 40);
+  ctx.fillText('SORTEIO COBBLEMON', width / 2, 40);
 
   // Session Trainer Header (Encompasses all pokemons in the draw!)
   if (sessionTrainerText) {
@@ -107,8 +107,11 @@ export async function generateLotteryCardImage(
   const images = await Promise.all(
     pokemons.map((p) => {
       const isRaticate = p.id === 20 || p.name === 'raticate' || p.name === 'raticate-alola';
+      const isShiny = p.isShiny;
       const src = isRaticate
         ? raticateImg
+        : isShiny
+        ? (p.sprites.other?.['official-artwork']?.front_shiny || p.sprites.front_shiny || p.sprites.other?.['official-artwork']?.front_default || p.sprites.front_default || '')
         : (p.sprites.other?.['official-artwork']?.front_default || p.sprites.front_default || '');
       return loadImage(src);
     })
@@ -144,6 +147,14 @@ export async function generateLotteryCardImage(
     ctx.font = '700 12px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(`#${String(pokemon.id).padStart(4, '0')}`, x + 16, contentStartY + 14);
+
+    // Shiny tag
+    if (pokemon.isShiny) {
+      ctx.fillStyle = '#facc15';
+      ctx.font = '900 12px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('✨ SHINY', x + cardWidth - 16, contentStartY + 14);
+    }
 
     // Sprite image
     const imgSize = 120;

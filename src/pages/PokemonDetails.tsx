@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft, Ruler, Weight, Shield, Sword, Heart, Zap, ArrowUp, Sparkles, 
   ShieldAlert, ZapOff, BarChart3, Compass, Swords, Trophy, GitFork, ChevronUp 
@@ -22,6 +22,7 @@ import raticateImg from '../assets/raticate.png';
 export default function PokemonDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [pokemon, setPokemon] = useState<Pokemon | null>(null);
   const [species, setSpecies] = useState<PokemonSpecies | null>(null);
   const [evolutionChain, setEvolutionChain] = useState<Pokemon[]>([]);
@@ -36,7 +37,7 @@ export default function PokemonDetails() {
   // Nature selector for stat highlight
   const [selectedNature, setSelectedNature] = useState<string>('none');
   
-  const [isShiny, setIsShiny] = useState(false);
+  const [isShiny, setIsShiny] = useState(() => searchParams.get('shiny') === 'true');
   const [loading, setLoading] = useState(true);
 
   // Sticky Tab Navigation State
@@ -236,8 +237,8 @@ export default function PokemonDetails() {
       }
     }
     loadData();
-    setIsShiny(false); // Reset shiny toggle on page change
-  }, [id]);
+    setIsShiny(searchParams.get('shiny') === 'true');
+  }, [id, searchParams]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-64"><div className="animate-pulse w-16 h-16 bg-cobble-700 rounded-full"></div></div>;

@@ -6,6 +6,7 @@ import { Crown, Sparkles, CheckCircle2 } from 'lucide-react';
 
 interface StartersDraftBoardProps {
   claimedStarters: Record<number, string>;
+  claimedShinyStarters?: Record<number, boolean>;
   highlightedId?: number | null;
   onSelectStarter?: (starter: StarterPokemonDef) => void;
   className?: string;
@@ -37,6 +38,7 @@ const TYPE_STYLES = {
 
 export function StartersDraftBoard({
   claimedStarters,
+  claimedShinyStarters,
   highlightedId,
   onSelectStarter,
   className
@@ -112,6 +114,7 @@ export function StartersDraftBoard({
           {STARTER_POKEMON_DEFS.filter(s => s.type === filterType).map((starter) => {
             const owner = claimedStarters[starter.id];
             const isClaimed = Boolean(owner);
+            const isShiny = Boolean(claimedShinyStarters?.[starter.id]);
             const isHighlighted = highlightedId === starter.id;
             const typeStyle = TYPE_STYLES[starter.type];
 
@@ -123,16 +126,24 @@ export function StartersDraftBoard({
                   "relative flex flex-col items-center justify-between p-2 rounded-xl border transition-all select-none",
                   isHighlighted && "ring-4 ring-yellow-400 scale-105 z-20 shadow-2xl bg-yellow-500/20 animate-pulse",
                   isClaimed
-                    ? "bg-cobble-950/80 border-cobble-700 opacity-60"
+                    ? isShiny
+                      ? "bg-cobble-950/90 border-yellow-500/70 shadow-[0_0_12px_rgba(250,204,21,0.2)]"
+                      : "bg-cobble-950/80 border-cobble-700 opacity-60"
                     : cn(typeStyle.bg, typeStyle.border, "cursor-pointer shadow-sm hover:scale-[1.03]")
                 )}
               >
                 {isClaimed && (
-                  <div className="absolute inset-0 bg-black/60 rounded-xl z-10 flex flex-col items-center justify-center p-1 text-center">
+                  <div className="absolute inset-0 bg-black/60 rounded-xl z-10 flex flex-col items-center justify-center p-1 text-center gap-1">
                     <div className="bg-yellow-500 text-cobble-950 border border-yellow-300 font-black text-[10px] px-1.5 py-0.5 rounded shadow flex items-center gap-1 truncate max-w-full">
                       <Crown className="w-3 h-3 shrink-0" />
                       <span className="truncate">{owner}</span>
                     </div>
+                    {isShiny && (
+                      <div className="bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 font-black text-[8px] px-1.5 py-0.2 rounded-full shadow flex items-center gap-0.5 uppercase tracking-wide">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>SHINY</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -142,11 +153,11 @@ export function StartersDraftBoard({
                 </div>
 
                 <img
-                  src={getStarterSpriteUrl(starter.id)}
+                  src={getStarterSpriteUrl(starter.id, isShiny)}
                   alt={starter.name}
                   className={cn(
                     "w-14 h-14 object-contain filter drop-shadow my-1",
-                    isClaimed && "grayscale opacity-50"
+                    isClaimed && !isShiny && "grayscale opacity-50"
                   )}
                   loading="lazy"
                 />
@@ -185,6 +196,7 @@ export function StartersDraftBoard({
                   {genStarters.map((starter) => {
                     const owner = claimedStarters[starter.id];
                     const isClaimed = Boolean(owner);
+                    const isShiny = Boolean(claimedShinyStarters?.[starter.id]);
                     const isHighlighted = highlightedId === starter.id;
                     const typeStyle = TYPE_STYLES[starter.type];
 
@@ -196,22 +208,30 @@ export function StartersDraftBoard({
                           "relative flex flex-col items-center justify-between p-1 rounded-lg border transition-all select-none",
                           isHighlighted && "ring-4 ring-yellow-400 scale-105 z-20 shadow-2xl bg-yellow-500/20 animate-pulse",
                           isClaimed
-                            ? "bg-cobble-950/80 border-cobble-700 opacity-60"
+                            ? isShiny
+                              ? "bg-cobble-950/90 border-yellow-500/70 shadow-[0_0_8px_rgba(250,204,21,0.2)]"
+                              : "bg-cobble-950/80 border-cobble-700 opacity-60"
                             : cn(typeStyle.bg, typeStyle.border, "cursor-pointer shadow-sm hover:scale-[1.02]")
                         )}
                         title={
                           isClaimed 
-                            ? `${starter.name} já foi sorteado para ${owner}!` 
+                            ? `${starter.name}${isShiny ? ' ✨ (SHINY)' : ''} já foi sorteado para ${owner}!` 
                             : `${starter.name} está disponível!`
                         }
                       >
                         {/* Claimed Stamp */}
                         {isClaimed && (
-                          <div className="absolute inset-0 bg-black/60 rounded-lg z-10 flex flex-col items-center justify-center p-0.5 text-center">
+                          <div className="absolute inset-0 bg-black/60 rounded-lg z-10 flex flex-col items-center justify-center p-0.5 text-center gap-0.5">
                             <div className="bg-yellow-500/90 text-cobble-950 border border-yellow-300 font-black text-[9px] px-1 py-0.2 rounded shadow flex items-center gap-0.5 truncate max-w-full">
                               <Crown className="w-2.5 h-2.5 shrink-0" />
                               <span className="truncate">{owner}</span>
                             </div>
+                            {isShiny && (
+                              <div className="bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 font-black text-[7px] px-1 py-0.1 rounded-full shadow flex items-center gap-0.5 uppercase tracking-tighter">
+                                <Sparkles className="w-2 h-2" />
+                                <span>SHINY</span>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -221,11 +241,11 @@ export function StartersDraftBoard({
                         </div>
 
                         <img
-                          src={getStarterSpriteUrl(starter.id)}
+                          src={getStarterSpriteUrl(starter.id, isShiny)}
                           alt={starter.name}
                           className={cn(
                             "w-10 h-10 object-contain filter drop-shadow my-0.5",
-                            isClaimed && "grayscale opacity-50"
+                            isClaimed && !isShiny && "grayscale opacity-50"
                           )}
                           loading="lazy"
                         />
