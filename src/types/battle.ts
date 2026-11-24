@@ -112,7 +112,10 @@ export type PeerMessage =
       isGameOver: boolean;
       winnerId?: 'host' | 'guest' | 'draw';
       attackEvents?: AttackAnimationEvent[];
+      needsHostSwitch?: boolean;
+      needsGuestSwitch?: boolean;
     }}
+  | { type: 'FORCED_SWITCH'; pokemonIndex: number }
   | { type: 'REMATCH' }
   | { type: 'CHAT_MESSAGE'; text: string; sender: string; timestamp: number }
   | { type: 'SURRENDER'; playerName: string }

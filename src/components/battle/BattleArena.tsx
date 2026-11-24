@@ -28,6 +28,9 @@ interface BattleArenaProps {
   attackStage?: 'idle' | 'lunge' | 'projectile' | 'impact';
   onSurrender?: () => void;
   onLeaveRoom?: () => void;
+  mustChooseSwitch?: boolean;
+  opponentMustChooseSwitch?: boolean;
+  onForcedSwitch?: (newIndex: number) => void;
 }
 
 export function BattleArena({
@@ -51,6 +54,9 @@ export function BattleArena({
   attackStage = 'idle',
   onSurrender,
   onLeaveRoom,
+  mustChooseSwitch = false,
+  opponentMustChooseSwitch = false,
+  onForcedSwitch,
 }: BattleArenaProps) {
   const [showSwitchModal, setShowSwitchModal] = useState(false);
   const [showSurrenderModal, setShowSurrenderModal] = useState(false);
@@ -462,6 +468,11 @@ export function BattleArena({
                   )}
                 </div>
               </div>
+            ) : opponentMustChooseSwitch && !mustChooseSwitch ? (
+              <div className="p-4 bg-cobble-900/90 border border-yellow-500/40 rounded-2xl text-center text-xs text-yellow-300 font-bold flex items-center justify-center gap-2.5 animate-pulse shadow-md">
+                <RefreshCw className="w-4 h-4 animate-spin text-yellow-400" />
+                <span>Aguardando {opponentName} escolher o próximo Pokémon...</span>
+              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                 {/* 4 Moves Buttons */}
@@ -722,6 +733,81 @@ export function BattleArena({
                     ) : (
                       <span className="text-xs font-bold text-cobble-400">Trocar</span>
                     )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Forced Switch Modal (When Active Pokémon Faints) */}
+      {mustChooseSwitch && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-cobble-900 border-2 border-red-500/60 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="text-center space-y-1">
+              <div className="inline-flex p-3 rounded-full bg-red-500/20 text-red-400 mb-1 animate-pulse">
+                <Skull className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white">
+                Seu Pokémon Foi Derrotado!
+              </h3>
+              <p className="text-xs text-cobble-300">
+                Escolha o próximo Pokémon para entrar em campo:
+              </p>
+            </div>
+
+            <div className="space-y-2.5 pt-1">
+              {playerTeam.map((poke, index) => {
+                const isFainted = poke.fainted || poke.currentHp <= 0;
+                return (
+                  <button
+                    key={poke.id}
+                    disabled={isFainted}
+                    onClick={() => onForcedSwitch?.(index)}
+                    className={cn(
+                      'w-full p-3 rounded-2xl border flex items-center justify-between text-left transition-all',
+                      isFainted
+                        ? 'border-cobble-800 bg-cobble-950/60 opacity-40 cursor-not-allowed'
+                        : 'border-cobble-700 bg-cobble-850 hover:border-yellow-400 hover:bg-cobble-800 hover:scale-[1.02] shadow-md group'
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center bg-cobble-900 rounded-xl p-1 border border-cobble-700/50">
+                        <img
+                          src={poke.sprites.front}
+                          alt={poke.name}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-sm font-black text-white capitalize group-hover:text-yellow-400 transition-colors">
+                          {poke.name}
+                        </div>
+                        <div className="flex gap-1 mt-0.5">
+                          {poke.types.map((t) => (
+                            <PokemonTypeBadge key={t} type={t} className="text-[8px] px-1 py-0" />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      {isFainted ? (
+                        <span className="text-[10px] font-black text-red-400 uppercase tracking-wide bg-red-950/80 px-2 py-0.5 rounded-md border border-red-500/30">
+                          Nocauteado
+                        </span>
+                      ) : (
+                        <div className="space-y-1">
+                          <span className="text-xs font-mono font-bold text-emerald-400">
+                            {poke.currentHp}/{poke.maxHp} HP
+                          </span>
+                          <div className="text-[10px] font-bold text-yellow-400 uppercase tracking-wider block">
+                            Entrar ›
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </button>
                 );
               })}

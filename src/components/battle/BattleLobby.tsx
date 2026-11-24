@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Swords, Check, Share2, Play, Bot, Users, Sparkles } from 'lucide-react';
+import { Swords, Check, Copy, Play, Bot, Users, Sparkles, Clipboard } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 
@@ -38,23 +38,27 @@ export function BattleLobby({
     return code;
   };
 
-  const getInviteUrl = (code: string) => {
-    if (typeof window === 'undefined' || !code) return '';
-    const currentUrl = new URL(window.location.href);
-    if (!currentUrl.pathname.endsWith('/arena')) {
-      currentUrl.pathname = `${currentUrl.pathname.replace(/\/$/, '')}/arena`;
-    }
-    currentUrl.search = `?sala=${code}`;
-    return currentUrl.toString();
-  };
-
-  const inviteUrl = getInviteUrl(roomId);
-
-  const handleCopyLink = () => {
-    if (!inviteUrl) return;
-    navigator.clipboard.writeText(inviteUrl);
+  const handleCopyCode = () => {
+    if (!roomId) return;
+    navigator.clipboard.writeText(roomId.trim().toUpperCase());
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handlePasteCode = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      let val = text.trim().toUpperCase();
+      if (val.includes('SALA=')) {
+        val = val.split('SALA=')[1].split('&')[0];
+      }
+      setJoinCodeInput(val);
+      if (val.trim() && playerName.trim()) {
+        onJoinRoom(val.trim());
+      }
+    } catch (e) {
+      console.warn('Could not read clipboard:', e);
+    }
   };
 
   return (
@@ -68,7 +72,7 @@ export function BattleLobby({
           ARENA DE BATALHA 1v1
         </h1>
         <p className="text-cobble-300 mt-2 text-sm sm:text-base max-w-xl mx-auto">
-          Crie uma sala, convide um amigo pelo link ou código e duelem em tempo real direto pelo navegador com sprites animadas!
+          Crie uma sala, convide um amigo pelo código da sala e duelem em tempo real direto pelo navegador com sprites animadas!
         </p>
       </div>
 
@@ -100,7 +104,7 @@ export function BattleLobby({
               </div>
               <div>
                 <h3 className="text-xl font-black text-white">Criar Nova Sala</h3>
-                <p className="text-xs text-cobble-400">Gere um link para desafiar alguém</p>
+                <p className="text-xs text-cobble-400">Gere um código para desafiar alguém</p>
               </div>
             </div>
 
@@ -114,30 +118,30 @@ export function BattleLobby({
                 </div>
 
                 <Button
-                  onClick={handleCopyLink}
+                  onClick={handleCopyCode}
                   className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30"
                 >
                   {copied ? (
                     <>
                       <Check className="w-4 h-4 text-green-300" />
-                      Link Copiado!
+                      Código Copiado!
                     </>
                   ) : (
                     <>
-                      <Share2 className="w-4 h-4" />
-                      Copiar Link de Convite
+                      <Copy className="w-4 h-4" />
+                      Copiar Código da Sala
                     </>
                   )}
                 </Button>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-cobble-300 animate-pulse pt-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-yellow-400 animate-ping" />
-                  {statusText || 'Aguardando oponente entrar pelo link...'}
+                  {statusText || 'Aguardando oponente entrar com o código...'}
                 </div>
               </div>
             ) : (
               <p className="text-sm text-cobble-300 mb-6">
-                Você será o Host da partida. Ao clicar abaixo, um código exclusivo e um link compartilhável serão criados.
+                Você será o Host da partida. Ao clicar abaixo, um código exclusivo será criado para você compartilhar com seu rival.
               </p>
             )}
           </div>
@@ -176,19 +180,36 @@ export function BattleLobby({
             </p>
 
             <div className="space-y-3">
-              <Input
-                value={joinCodeInput}
-                onChange={(e) => {
-                  let val = e.target.value.trim().toUpperCase();
-                  if (val.includes('sala=')) {
-                    val = val.split('sala=')[1].split('&')[0];
-                  }
-                  setJoinCodeInput(val);
-                }}
-                placeholder="Ex: K8F9Z"
-                maxLength={10}
-                className="bg-cobble-950 border-cobble-700 text-center text-xl font-mono uppercase tracking-widest font-black text-white"
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={joinCodeInput}
+                  onChange={(e) => {
+                    let val = e.target.value.trim().toUpperCase();
+                    if (val.includes('sala=')) {
+                      val = val.split('sala=')[1].split('&')[0];
+                    }
+                    setJoinCodeInput(val);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && joinCodeInput.trim() && playerName.trim() && !isConnecting) {
+                      onJoinRoom(joinCodeInput.trim());
+                    }
+                  }}
+                  placeholder="Ex: K8F9Z"
+                  maxLength={10}
+                  className="bg-cobble-950 border-cobble-700 text-center text-xl font-mono uppercase tracking-widest font-black text-white flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handlePasteCode}
+                  className="px-3.5 bg-cobble-800 hover:bg-cobble-700 border-cobble-600 text-yellow-400 font-bold text-xs flex items-center gap-1.5 rounded-xl shadow shrink-0"
+                  title="Colar código ou link da área de transferência"
+                >
+                  <Clipboard className="w-4 h-4" />
+                  <span>Colar</span>
+                </Button>
+              </div>
 
               {isConnecting && (
                 <div className="text-center text-xs text-blue-400 animate-pulse">

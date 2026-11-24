@@ -52,6 +52,15 @@ export default function Arena() {
   ]);
   const [winner, setWinner] = useState<'player' | 'opponent' | 'draw' | null>(null);
 
+  // Forced switch on faint
+  const [mustChooseSwitch, setMustChooseSwitch] = useState(false);
+  const mustChooseSwitchRef = useRef(false);
+  mustChooseSwitchRef.current = mustChooseSwitch;
+
+  const [opponentMustChooseSwitch, setOpponentMustChooseSwitch] = useState(false);
+  const opponentMustChooseSwitchRef = useRef(false);
+  opponentMustChooseSwitchRef.current = opponentMustChooseSwitch;
+
   // Turn Count
   const [turnCount, setTurnCount] = useState(1);
   const turnCountRef = useRef(1);
@@ -138,13 +147,8 @@ export default function Arena() {
         handlePeerMessageRef.current(msg);
       },
       onDisconnected: () => {
-        if (!isHostMode && !opponentNameRef.current) {
-          setPhase('ROOM_FULL');
-          setStatusText('Esta sala já está cheia (duelo 1v1 já em andamento).');
-        } else {
-          setStatusText('Oponente desconectou-se.');
-          addLog('Oponente desconectou-se da partida.', 'faint');
-        }
+        setStatusText('Oponente desconectou-se.');
+        addLog('Oponente desconectou-se da partida.', 'faint');
       },
       onError: (err: unknown) => {
         console.error('Peer error:', err);
@@ -168,6 +172,47 @@ export default function Arena() {
       service.joinRoom(code);
     }
   };
+
+  // Start Room as Host
+  const handleCreateRoom = (code: string) => {
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) return;
+    setRoomId(trimmed);
+    setIsHost(true);
+    isHostRef.current = true;
+    setIsBotMode(false);
+    setPlayerTeam([]);
+    setOpponentTeam([]);
+    setOpponentName('');
+    setOpponentReady(false);
+    setPlayerReady(false);
+    setPhase('TEAM_SELECT');
+    initPeerService(true, trimmed);
+  };
+
+  // Join Room as Guest
+  const handleJoinRoom = (code: string) => {
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) return;
+    setRoomId(trimmed);
+    setIsHost(false);
+    isHostRef.current = false;
+    setIsBotMode(false);
+    setPlayerTeam([]);
+    setOpponentTeam([]);
+    setOpponentName('');
+    setOpponentReady(false);
+    setPlayerReady(false);
+    setPhase('TEAM_SELECT');
+    initPeerService(false, trimmed);
+  };
+
+  // Auto-join if url has room param
+  useEffect(() => {
+    if (urlRoom && !peerServiceRef.current) {
+      handleJoinRoom(urlRoom);
+    }
+  }, [urlRoom]);
 
   const handlePeerMessage = (msg: PeerMessage) => {
     switch (msg.type) {
@@ -215,6 +260,20 @@ export default function Arena() {
 
       case 'SYNC_TURN':
         applyTurnSync(msg.results);
+        break;
+
+      case 'FORCED_SWITCH':
+        setOpponentActiveIndex(msg.pokemonIndex);
+        opponentActiveIndexRef.current = msg.pokemonIndex;
+        setOpponentMustChooseSwitch(false);
+        opponentMustChooseSwitchRef.current = false;
+        {
+          const switchedPoke = opponentTeamRef.current[msg.pokemonIndex];
+          addLog(`🔄 ${opponentNameRef.current || 'Oponente'} enviou ${switchedPoke?.name || 'Pokémon'}!`, 'switch');
+        }
+        if (!mustChooseSwitchRef.current) {
+          setIsWaitingOpponent(false);
+        }
         break;
 
       case 'CHAT_MESSAGE':
@@ -316,36 +375,6 @@ export default function Arena() {
         }
       ]);
     }, 1200 + Math.random() * 800);
-  };
-
-  // Start Room as Host
-  const handleCreateRoom = (code: string) => {
-    setRoomId(code);
-    setIsHost(true);
-    isHostRef.current = true;
-    setIsBotMode(false);
-    setPlayerTeam([]);
-    setOpponentTeam([]);
-    setOpponentName('');
-    setOpponentReady(false);
-    setPlayerReady(false);
-    setPhase('TEAM_SELECT');
-    initPeerService(true, code);
-  };
-
-  // Join Room as Guest
-  const handleJoinRoom = (code: string) => {
-    setRoomId(code);
-    setIsHost(false);
-    isHostRef.current = false;
-    setIsBotMode(false);
-    setPlayerTeam([]);
-    setOpponentTeam([]);
-    setOpponentName('');
-    setOpponentReady(false);
-    setPlayerReady(false);
-    setPhase('TEAM_SELECT');
-    initPeerService(false, code);
   };
 
   // Bot Mode (Practice singleplayer)
@@ -622,42 +651,11 @@ export default function Arena() {
     const guestFainted = newGuestTeam[guestActive].currentHp <= 0;
     const hostFainted = newHostTeam[hostActive].currentHp <= 0;
 
-    let guestHasAlive = true;
-    let hostHasAlive = true;
+    let guestHasAlive = newGuestTeam.some((p) => !p.fainted && p.currentHp > 0);
+    let hostHasAlive = newHostTeam.some((p) => !p.fainted && p.currentHp > 0);
 
-    // Check Guest team faint
-    if (guestFainted) {
-      newGuestTeam[guestActive].fainted = true;
-      newGuestTeam[guestActive].currentHp = 0;
-      const nextAliveIdx = newGuestTeam.findIndex((p) => !p.fainted && p.currentHp > 0);
-      if (nextAliveIdx !== -1) {
-        guestActive = nextAliveIdx;
-        actionLogs.push({
-          id: Math.random().toString(),
-          text: `${opponentNameRef.current || opponentName} enviou ${newGuestTeam[guestActive].name}!`,
-          variant: 'switch'
-        });
-      } else {
-        guestHasAlive = false;
-      }
-    }
-
-    // Check Host team faint
-    if (hostFainted) {
-      newHostTeam[hostActive].fainted = true;
-      newHostTeam[hostActive].currentHp = 0;
-      const nextAliveIdx = newHostTeam.findIndex((p) => !p.fainted && p.currentHp > 0);
-      if (nextAliveIdx !== -1) {
-        hostActive = nextAliveIdx;
-        actionLogs.push({
-          id: Math.random().toString(),
-          text: `${playerNameRef.current || playerName} enviou ${newHostTeam[hostActive].name}!`,
-          variant: 'switch'
-        });
-      } else {
-        hostHasAlive = false;
-      }
-    }
+    let needsHostSwitch = false;
+    let needsGuestSwitch = false;
 
     if (!guestHasAlive && !hostHasAlive) {
       gameOver = true;
@@ -673,6 +671,29 @@ export default function Arena() {
     } else if (!hostHasAlive) {
       gameOver = true;
       win = 'guest';
+    } else {
+      // Neither team completely wiped out
+      if (hostFainted) {
+        needsHostSwitch = true;
+      }
+      if (guestFainted) {
+        if (isBotMode) {
+          const aliveIndices = newGuestTeam
+            .map((p, idx) => ({ p, idx }))
+            .filter((x) => !x.p.fainted && x.p.currentHp > 0);
+          if (aliveIndices.length > 0) {
+            const picked = aliveIndices[Math.floor(Math.random() * aliveIndices.length)].idx;
+            guestActive = picked;
+            actionLogs.push({
+              id: Math.random().toString(),
+              text: `${opponentNameRef.current || opponentName} enviou ${newGuestTeam[guestActive].name}!`,
+              variant: 'switch'
+            });
+          }
+        } else {
+          needsGuestSwitch = true;
+        }
+      }
     }
 
     const syncPayload = {
@@ -683,7 +704,9 @@ export default function Arena() {
       guestActiveIndex: guestActive,
       isGameOver: gameOver,
       winnerId: win,
-      attackEvents
+      attackEvents,
+      needsHostSwitch,
+      needsGuestSwitch
     };
 
     if (!isBotMode) {
@@ -705,6 +728,8 @@ export default function Arena() {
     isGameOver: boolean;
     winnerId?: 'host' | 'guest' | 'draw';
     attackEvents?: AttackAnimationEvent[];
+    needsHostSwitch?: boolean;
+    needsGuestSwitch?: boolean;
   }) => {
     // Reset action refs
     playerActionRef.current = null;
@@ -738,9 +763,9 @@ export default function Arena() {
       opponentActiveIndexRef.current = nextOpponentIdx;
 
       setIsAnimating(false);
-      setIsWaitingOpponent(false);
 
       if (res.isGameOver) {
+        setIsWaitingOpponent(false);
         if (res.winnerId === 'draw') {
           setWinner('draw');
         } else {
@@ -748,6 +773,24 @@ export default function Arena() {
           setWinner(won ? 'player' : 'opponent');
         }
         setPhase('GAME_OVER');
+        return;
+      }
+
+      // Check forced switch requirements
+      const myFaintSwitch = isHostRef.current ? !!res.needsHostSwitch : !!res.needsGuestSwitch;
+      const oppFaintSwitch = isHostRef.current ? !!res.needsGuestSwitch : !!res.needsHostSwitch;
+
+      setMustChooseSwitch(myFaintSwitch);
+      mustChooseSwitchRef.current = myFaintSwitch;
+      setOpponentMustChooseSwitch(oppFaintSwitch);
+      opponentMustChooseSwitchRef.current = oppFaintSwitch;
+
+      if (myFaintSwitch) {
+        setIsWaitingOpponent(false);
+      } else if (oppFaintSwitch) {
+        setIsWaitingOpponent(true);
+      } else {
+        setIsWaitingOpponent(false);
       }
     };
 
@@ -809,6 +852,10 @@ export default function Arena() {
     setWinner(null);
     setIsWaitingOpponent(false);
     setIsAnimating(false);
+    setMustChooseSwitch(false);
+    mustChooseSwitchRef.current = false;
+    setOpponentMustChooseSwitch(false);
+    opponentMustChooseSwitchRef.current = false;
     playerActionRef.current = null;
     opponentActionRef.current = null;
     setTurnCount(1);
@@ -833,6 +880,30 @@ export default function Arena() {
     }
   };
 
+  // Player chooses next Pokemon when active faints
+  const handleForcedSwitch = (newIndex: number) => {
+    setPlayerActiveIndex(newIndex);
+    playerActiveIndexRef.current = newIndex;
+    setMustChooseSwitch(false);
+    mustChooseSwitchRef.current = false;
+
+    const chosenPokemon = playerTeamRef.current[newIndex];
+    addLog(`🔄 ${playerNameRef.current || 'Você'} enviou ${chosenPokemon?.name || 'Pokémon'}!`, 'switch');
+
+    if (!isBotMode) {
+      peerServiceRef.current?.send({
+        type: 'FORCED_SWITCH',
+        pokemonIndex: newIndex
+      });
+    }
+
+    if (opponentMustChooseSwitchRef.current) {
+      setIsWaitingOpponent(true);
+    } else {
+      setIsWaitingOpponent(false);
+    }
+  };
+
   // Surrender / Forfeit battle
   const handleSurrender = () => {
     if (phase !== 'BATTLE') return;
@@ -850,6 +921,10 @@ export default function Arena() {
     setPhase('GAME_OVER');
     setIsWaitingOpponent(false);
     setIsAnimating(false);
+    setMustChooseSwitch(false);
+    mustChooseSwitchRef.current = false;
+    setOpponentMustChooseSwitch(false);
+    opponentMustChooseSwitchRef.current = false;
   };
 
   // Leave Room & return to Lobby
@@ -879,6 +954,10 @@ export default function Arena() {
     setIsBotMode(false);
     setIsWaitingOpponent(false);
     setIsAnimating(false);
+    setMustChooseSwitch(false);
+    mustChooseSwitchRef.current = false;
+    setOpponentMustChooseSwitch(false);
+    opponentMustChooseSwitchRef.current = false;
     setWinner(null);
     setChatMessages([]);
     setLogs([{ id: Math.random().toString(), text: 'Bem-vindo à Arena Pokémon! Prepare seus melhores Pokémon.' }]);
@@ -941,6 +1020,9 @@ export default function Arena() {
           attackStage={attackStage}
           onSurrender={handleSurrender}
           onLeaveRoom={handleLeaveRoom}
+          mustChooseSwitch={mustChooseSwitch}
+          opponentMustChooseSwitch={opponentMustChooseSwitch}
+          onForcedSwitch={handleForcedSwitch}
         />
       )}
 

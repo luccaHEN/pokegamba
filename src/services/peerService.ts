@@ -17,7 +17,6 @@ export class PeerBattleService {
   public isHost: boolean = false;
   public myId: string = '';
   public remoteId: string = '';
-  public isRoomLocked: boolean = false;
 
   constructor(events: PeerServiceEvents) {
     this.events = events;
@@ -26,7 +25,6 @@ export class PeerBattleService {
   // Create room as Host
   public createRoom(roomId: string) {
     this.isHost = true;
-    this.isRoomLocked = false;
     this.destroy();
 
     const fullRoomId = `pkms-${roomId.toLowerCase().trim()}`;
@@ -49,9 +47,9 @@ export class PeerBattleService {
     });
 
     this.peer.on('connection', (connection) => {
-      // If already connected or room is locked to an active guest, reject extra connections
-      if (this.isRoomLocked || (this.conn && this.conn.open)) {
-        const rejectConnection = () => {
+      // If host already has an active, open connection with an opponent (different peer), reject
+      if (this.conn && this.conn.open && this.conn.peer !== connection.peer) {
+        const reject = () => {
           try {
             connection.send({ type: 'ROOM_FULL' });
           } catch (e) {
@@ -63,17 +61,13 @@ export class PeerBattleService {
         };
 
         if (connection.open) {
-          rejectConnection();
+          reject();
         } else {
-          connection.on('open', rejectConnection);
-          setTimeout(() => {
-            try { connection.close(); } catch (e) {}
-          }, 2500);
+          connection.on('open', reject);
         }
         return;
       }
 
-      this.isRoomLocked = true;
       this.conn = connection;
       this.remoteId = connection.peer;
       this.setupConnection();
@@ -129,17 +123,22 @@ export class PeerBattleService {
   private setupConnection() {
     if (!this.conn) return;
 
-    this.conn.on('open', () => {
+    const onOpen = () => {
       this.flushQueue();
       this.events.onConnected(this.remoteId);
-    });
+    };
+
+    if (this.conn.open) {
+      onOpen();
+    } else {
+      this.conn.on('open', onOpen);
+    }
 
     this.conn.on('data', (data) => {
       this.events.onData(data as PeerMessage);
     });
 
     this.conn.on('close', () => {
-      this.isRoomLocked = false;
       this.conn = null;
       this.events.onDisconnected();
     });
@@ -177,7 +176,6 @@ export class PeerBattleService {
   }
 
   public destroy() {
-    this.isRoomLocked = false;
     this.sendQueue = [];
     if (this.conn) {
       try {

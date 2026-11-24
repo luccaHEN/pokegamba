@@ -17,7 +17,7 @@ import {
   Sparkles,
   Zap,
   Gauge,
-  Share2,
+  Copy,
   LogOut
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
@@ -61,14 +61,9 @@ export function TeamSelect({
     return roster[0];
   });
 
-  const handleCopyInvite = () => {
-    if (!roomId || typeof window === 'undefined') return;
-    const currentUrl = new URL(window.location.href);
-    if (!currentUrl.pathname.endsWith('/arena')) {
-      currentUrl.pathname = `${currentUrl.pathname.replace(/\/$/, '')}/arena`;
-    }
-    currentUrl.search = `?sala=${roomId}`;
-    navigator.clipboard.writeText(currentUrl.toString());
+  const handleCopyCode = () => {
+    if (!roomId) return;
+    navigator.clipboard.writeText(roomId.trim().toUpperCase());
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
   };
@@ -168,17 +163,6 @@ export function TeamSelect({
         </div>
 
         <div className="flex items-center gap-3">
-          {isBotMode && onLeaveRoom && (
-            <Button
-              onClick={onLeaveRoom}
-              variant="secondary"
-              className="text-xs font-bold py-1 px-2.5 border-cobble-700 bg-cobble-800 hover:bg-red-950/50 text-cobble-300 hover:text-red-300 flex items-center gap-1 rounded-xl"
-              title="Voltar ao saguão"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sair</span>
-            </Button>
-          )}
           <div className="text-right">
             <div className="text-[10px] text-cobble-400 uppercase font-bold tracking-wider">Rival</div>
             <div className="text-sm font-black text-white">{opponentName || 'Aguardando...'}</div>
@@ -206,19 +190,19 @@ export function TeamSelect({
 
           <div className="flex items-center gap-2">
             <Button
-              onClick={handleCopyInvite}
+              onClick={handleCopyCode}
               variant="secondary"
               className="text-xs font-bold py-1.5 px-3 border-cobble-600 bg-cobble-800 hover:bg-cobble-700 text-white flex items-center gap-1.5 rounded-xl shadow"
             >
               {copiedLink ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Link Copiado!</span>
+                  <span>Código Copiado!</span>
                 </>
               ) : (
                 <>
-                  <Share2 className="w-3.5 h-3.5 text-yellow-400" />
-                  <span>Copiar Link de Convite</span>
+                  <Copy className="w-3.5 h-3.5 text-yellow-400" />
+                  <span>Copiar Código</span>
                 </>
               )}
             </Button>
