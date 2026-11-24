@@ -71,9 +71,6 @@ export function BattleLobby({
         <h1 className="text-4xl sm:text-5xl font-black italic tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 to-orange-400 drop-shadow-md">
           ARENA DE BATALHA 1v1
         </h1>
-        <p className="text-cobble-300 mt-2 text-sm sm:text-base max-w-xl mx-auto">
-          Crie uma sala, convide um amigo pelo código da sala e duelem em tempo real direto pelo navegador com sprites animadas!
-        </p>
       </div>
 
       {/* Nickname Selection */}
