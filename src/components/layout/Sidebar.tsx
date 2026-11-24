@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation, useSearchParams } from 'react-router-dom';
 import { 
-  Menu, X, Dices, Book, History, Star, Type, Package, Compass, 
+  Menu, X, Dices, Book, History, Star, Type, Package, Compass, Swords, 
   ChevronLeft, ChevronRight, ChevronDown, Globe, Apple, Bone, Disc, Dna, Layers 
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
@@ -24,6 +24,7 @@ export const GUIDE_CATEGORIES = [
 const TOP_NAV_ITEMS = [
   { name: 'Sorteio', href: '/sorteio', icon: Dices, badge: 'Popular' },
   { name: 'Pokédex', href: '/pokedex', icon: Book },
+  { name: 'Batalha 1v1', href: '/arena', icon: Swords, badge: 'Novo' },
 ];
 
 const BOTTOM_NAV_ITEMS = [

@@ -7,6 +7,7 @@ import History from './pages/History';
 import Favorites from './pages/Favorites';
 import LootTable from './pages/LootTable';
 import Guide from './pages/Guide';
+import Arena from './pages/Arena';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Route path="pokemon/:id" element={<PokemonDetails />} />
           <Route path="loot" element={<LootTable />} />
           <Route path="guia" element={<Guide />} />
+          <Route path="arena" element={<Arena />} />
           <Route path="favoritos" element={<Favorites />} />
           <Route path="historico" element={<History />} />
         </Route>

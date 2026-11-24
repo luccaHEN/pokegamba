@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Menu, X, Dices, Book, History, Star, Type, Package, Compass } from 'lucide-react';
+import { Menu, X, Dices, Book, History, Star, Type, Package, Compass, Swords } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 const navLeft = [
   { name: 'Sorteio', href: '/sorteio', icon: Dices },
   { name: 'Pokédex', href: '/pokedex', icon: Book },
+  { name: 'Batalha 1v1', href: '/arena', icon: Swords },
   { name: 'Drops / Loot', href: '/loot', icon: Package },
 ];
 
